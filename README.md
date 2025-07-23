@@ -11,7 +11,7 @@ This research was supported by funding from the University of Exeter through a N
 Many thanks to the University of Exeter MSc students Carrie Bristow, Ami Jewell, Zaaz Santhanam and Adam Smith for project support. All authors wish to thank the reviewers and handling editor for their time and effort and greatly appreciate their constructive comments that contributed to this study. All research was subject to ethical approval by the University of Exeter Ethics Committee (Application ID: 492660). 
 
 **Data Availability:**
-Data made availble open access for viewing. Its use in further research and publications requires permission and will be given upon reasonable request from the data owner (O.EXETER@EXETER.AC.UK)
+Data made availble open access for viewing. Its use in further research and publications requires permission and will be given upon reasonable request from the data owner and corresponding authour (O.EXETER@EXETER.AC.UK) or principal investigator (KRISTIAN.METCALFE@exeter.ac.uk)
 
 **Authors:**
 Owen M. Exeter 1*, Annette C. Broderick 1, Xavier A. Harrison 1, Francesco Garzon 2, Sarah Morcom 3, Ricky Pender 3, Trudy Russell 5, Ian Saunders 5, Paul J. Somerfield 6, Kate Sugar 5, Colin Trundle 3, Julie Webber 5, Tom Hooper 3,4, Kristian Metcalfe 1,7,8 

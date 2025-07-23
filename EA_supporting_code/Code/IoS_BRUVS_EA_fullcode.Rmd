@@ -15,55 +15,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #### Libraries
 ```{r results='hide', message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
-library(ggpubr)
-library(tidyverse)
-library(vegan)
-library(scales)
-library(arm)
-library(ggsignif)
-library(rstatix)
-library(multcompView)
-library(ggthemes)
-library(data.table)
-library(spatialreg)
-library(spatialEco)
-library(spdep)
-library(sf)
-library(spaMM)
-library(plotrix)  
-library(grid)
-library(gridExtra)
-library(patchwork)
-library(cowplot)
-
-library(plotrix) 
-library(tidyverse)
-
-
-library(broom)
-library(lmtest)
-library(MuMIn)
-
-
-library(spaMM)
-library(emmeans)
-library(MASS)
-library(scales)
-library(arm)
-library(ggpubr)
-library(rstatix)
-library(multcompView)
-library(ggthemes)
-library(data.table)
-library(glmmTMB)
-library(spatialreg)
-library(spatialEco)
-library(spdep)
-library(sp)
-library(lme4)
-library(dplyr)
-
-
 
 library(tidyverse)
 library(vegan)
@@ -86,17 +37,6 @@ library(sf)
 library(dplyr)
 library(ggplotify)
 library(MuMIn)
-
-
-library(glmmTMB)
-library(emmeans)
-library(spaMM)
-library(broom)
-library(lmtest)
-library(spaMM)
-
-library(plotrix)  
-library(lme4)
 
 
 ```

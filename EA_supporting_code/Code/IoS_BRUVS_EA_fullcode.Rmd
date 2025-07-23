@@ -45,16 +45,16 @@ library(MuMIn)
 ```{r, echo=FALSE}
 ### Data processing
 ## read in BRUVS observation data
-species_obs <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_observations.csv')
+species_obs <- read.csv('../Data/IoS_BEN_observations.csv')
 ## just demersal species
-reef_fish <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_observations_demerselfish.csv')
+reef_fish <- read.csv('../Data/IoS_BEN_observations_demerselfish.csv')
 ## read in lengths data
-species_lengths <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_Lengths.csv')
+species_lengths <- read.csv('../Data/IoS_BEN_Lengths.csv')
 
 ## read in processed biomass data
-site_biomass <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IOS_BEN_biomass.csv')
+site_biomass <- read.csv('../Data/IOS_BEN_biomass.csv')
 ## read in metadata
-envo_variables <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_metadata.csv')
+envo_variables <- read.csv('../Data/IoS_BEN_metadata.csv')
 
 ```
 
@@ -175,7 +175,7 @@ hist(IOS_data$Total_biomass_kg)
 #### 1.3 Proportion plots for Figure 2
 ```{r, warning=FALSE}
 ## read in obs data with 0 values for non present sites
-species <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/iNEXT_data_format2.csv')
+species <- read.csv('../Data/iNEXT_data_format2.csv')
 ## convert wide to long
 long <- melt(setDT(species), id.vars = "ID", variable.name = "Species")
 
@@ -198,7 +198,7 @@ species_maxn<-cbind(maxN_mean,maxN_sd,maxN_sum)
 species_maxn<-species_maxn[,c(1,2,4,6)]
 
 ## bind the families to species using merged Obs and meta data
-family_habs <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_metadata_obs.csv')
+family_habs <- read.csv('../Data/IoS_BEN_metadata_obs.csv')
 habitat <- family_habs[,c('GRTS_ID','Broadscale_habitat')]
 habitat$Habitat <- as.factor(ifelse(habitat$Broadscale_habitat == 'Circalittoral rock' | habitat$Broadscale_habitat ==  'Infralittoral rock','Reefs','Sediment'))
 habitat<-unique(habitat)

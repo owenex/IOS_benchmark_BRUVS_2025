@@ -19,8 +19,8 @@ library(gridExtra)
 # Rarefaction -------------------------------------------------------------
 
 ## read in BRUVS metadata
-meta <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_metadata.csv')
-
+meta <- read.csv('../Data/IoS_BEN_metadata.csv')
+  
 ## remove unnecessary columns 
 meta2 <- meta[,c('GRTS_ID','Broadscale_habitat')]
 meta2 <- unique(meta2[])
@@ -38,7 +38,7 @@ circa_list <- subset(meta2,meta2$Broadscale_habitat == 'Circalittoral rock')
 circa_list <- as.list(circa_list$ID)
 
 ## read in primer style matrix of occurrence data by site
-pres_ab <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/iNEXT_data_format.csv')
+pres_ab <- read.csv('../Data/iNEXT_data_format.csv')
 ## turn species into presence/absence
 pres_abs <- pres_ab
 pres_abs[pres_abs>=1]<-1

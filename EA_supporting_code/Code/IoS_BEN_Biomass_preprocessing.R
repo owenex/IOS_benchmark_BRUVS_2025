@@ -14,7 +14,7 @@ library(tidyverse)
 library(terra)
 
 #### read in length data
-Lengths_species <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_Lengths.csv')
+Lengths_species <- read.csv('../Data/IoS_BEN_Lengths.csv')
 
 ## calculate a mean length per species per sample
 Mean_length_species <- Lengths_species %>%
@@ -22,7 +22,7 @@ Mean_length_species <- Lengths_species %>%
   summarise(Mean_length = mean(Length))
 
 #### read in Obs data
-MaxN_biomass<-read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_Obs_Biomass.csv')
+MaxN_biomass<-read.csv('../Data/IoS_BEN_Obs_Biomass.csv')
 
 ## join mean lengths and observations datasets
 merged_df <- Mean_length_species %>%
@@ -119,7 +119,7 @@ Species_with_lengths2$Species_latin <- ifelse(Species_with_lengths2$Species_lati
 ##---------------------------------------------------------------------------------##
 
 #### read in the species length-weight relationships from fishbase
-LW_ratios <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/Fishbase_lengthweight_ratios.csv')
+LW_ratios <- read.csv('../Data/Fishbase_lengthweight_ratios.csv')
 
 ## merge fishbase proxy lengths with all other lengths
 Species_LW <- LW_ratios %>%
@@ -140,7 +140,7 @@ Biomass <- Species_LW %>%
 Biomass$Total_biomass_kg <- Biomass$Total_biomass/1000
 
 ## export processed biomass values
-outfile <- '~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IOS_BEN_biomass.csv'
-write.csv(Biomass,outfile)
+#outfile <- '../Data/IOS_BEN_biomass.csv'
+#write.csv(Biomass,outfile)
 
 ##---------------------------------------------------------------------------------##

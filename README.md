@@ -5,7 +5,7 @@ Isles of Scilly benchmark stereo-BRUVS survey (2022-2023)
 'Application of spatially robust stereo-BRUV sampling for quantifying fish assemblages in UK marine protected areas.'
 
 **Data Availability:**
-Data made availble open access. Its use in future publications requires permission and will be given upon reasonable request from the data owner and corresponding authour (O.EXETER@EXETER.AC.UK) or principal investigator (KRISTIAN.METCALFE@exeter.ac.uk).
+Data made availble open access. Its use in future publications requires permission and will be given upon reasonable request from the data owner and corresponding authour (O.EXETER@EXETER.AC.UK) or principal investigator (KRISTIAN.METCALFE@EXETER.AC.UK).
 
 **Funding:**
 This research was supported by funding from the University of Exeter through a Natural Environment Research Council GW4+ DTP PhD Case studentship award (Grant Ref number: NE/S007504/1). 

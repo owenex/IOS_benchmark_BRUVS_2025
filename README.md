@@ -14,9 +14,9 @@ Many thanks to the University of Exeter MSc students Carrie Bristow, Ami Jewell,
 Data made availble open access for viewing. Its use in further research and publications requires permission and will be given upon reasonable request from the data owner (O.EXETER@EXETER.AC.UK)
 
 **Authors:**
-Owen M. Exeter1*, Annette C. Broderick1, Xavier A. Harrison1, Francesco Garzon2, Sarah Morcom3, Ricky Pender3, Trudy Russell5, Ian Saunders5, Paul J. Somerfield6**, Kate Sugar5, Colin Trundle3, Julie Webber5, Tom Hooper3,4, Kristian Metcalfe1,7,8 
+Owen M. Exeter 1*, Annette C. Broderick 1, Xavier A. Harrison 1, Francesco Garzon 2, Sarah Morcom 3, Ricky Pender 3, Trudy Russell 5, Ian Saunders 5, Paul J. Somerfield 6, Kate Sugar 5, Colin Trundle 3, Julie Webber 5, Tom Hooper 3,4, Kristian Metcalfe 1,7,8 
 
-Author Affiliations:
+**Author Affiliations:**
 
 1 Centre for Ecology and Conservation, Faculty of Environment, Science and Economy, University of Exeter, Penryn, Cornwall, TR10 9FE, UK.
 

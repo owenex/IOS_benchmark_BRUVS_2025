@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #### Libraries
 ```{r results='hide', message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
+library(ggpubr)
 library(tidyverse)
 library(vegan)
 library(scales)
@@ -32,17 +33,19 @@ library(spaMM)
 library(plotrix)  
 library(grid)
 library(gridExtra)
-library(spaMM)
+library(patchwork)
+library(cowplot)
+
+library(plotrix) 
+library(tidyverse)
+
+
 library(broom)
 library(lmtest)
 library(MuMIn)
-library(plotrix) 
-library(patchwork)
-library(cowplot)
-library(ggpubr)
 
 
-
+library(spaMM)
 library(emmeans)
 library(MASS)
 library(scales)
@@ -60,22 +63,58 @@ library(sp)
 library(lme4)
 library(dplyr)
 
+
+
+library(tidyverse)
+library(vegan)
+library(MASS)
+library(plotrix)  
+library(grid)
+library(gridExtra)
+library(scales)
+library(arm)
+library(ggsignif)
+library(ggpubr)
+library(rstatix)
+library(multcompView)
+library(ggthemes)
+library(data.table)
+library(spatialreg)
+library(spatialEco)
+library(spdep)
+library(sf)
+library(dplyr)
+library(ggplotify)
+library(MuMIn)
+
+
+library(glmmTMB)
+library(emmeans)
+library(spaMM)
+library(broom)
+library(lmtest)
+library(spaMM)
+
+library(plotrix)  
+library(lme4)
+
+
 ```
 
 ### 0 | Read in ecological and metadata
 ```{r, echo=FALSE}
 ### Data processing
 ## read in BRUVS observation data
-species_obs <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_observations.csv')
+species_obs <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_observations.csv')
 ## just demersal species
-reef_fish <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_observations_demerselfish.csv')
+reef_fish <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_observations_demerselfish.csv')
 ## read in lengths data
-species_lengths <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/Lengths/IoS_BEN_Lengths.csv')
+species_lengths <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_Lengths.csv')
 
 ## read in processed biomass data
-site_biomass <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IOS_BEN_biomass.csv')
+site_biomass <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IOS_BEN_biomass.csv')
 ## read in metadata
-envo_variables <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_metadata.csv')
+envo_variables <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_metadata.csv')
 
 ```
 
@@ -196,7 +235,7 @@ hist(IOS_data$Total_biomass_kg)
 #### 1.3 Proportion plots for Figure 2
 ```{r, warning=FALSE}
 ## read in obs data with 0 values for non present sites
-species <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/iNEXT_data_format2.csv')
+species <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/iNEXT_data_format2.csv')
 ## convert wide to long
 long <- melt(setDT(species), id.vars = "ID", variable.name = "Species")
 
@@ -219,7 +258,7 @@ species_maxn<-cbind(maxN_mean,maxN_sd,maxN_sum)
 species_maxn<-species_maxn[,c(1,2,4,6)]
 
 ## bind the families to species using merged Obs and meta data
-family_habs <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_metadata_obs.csv')
+family_habs <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_metadata_obs.csv')
 habitat <- family_habs[,c('GRTS_ID','Broadscale_habitat')]
 habitat$Habitat <- as.factor(ifelse(habitat$Broadscale_habitat == 'Circalittoral rock' | habitat$Broadscale_habitat ==  'Infralittoral rock','Reefs','Sediment'))
 habitat<-unique(habitat)
@@ -1009,7 +1048,8 @@ model1 <- glm(Total_biomass_kg~Habitat + W_y + Year, data = IOS_data_SAC, family
 model2 <- glm(Total_biomass_kg~Depth +  W_y + Year, data = IOS_data_SAC, family = Gamma(link =log))  
 model3 <- glm(Total_biomass_kg~Temp + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))    
 model4 <- glm(Total_biomass_kg~Relief_score + W_y + Year,data = IOS_data_SAC, family = Gamma(link =log))
-model5 <- glm(Total_biomass_kg~Remoteness + W_y + Year,data = IOS_data_SAC, family = Gamma(link =log)) model6 <- glm(Total_biomass_kg~Exposure + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))
+model5 <- glm(Total_biomass_kg~Remoteness + W_y + Year,data = IOS_data_SAC, family = Gamma(link =log)) 
+model6 <- glm(Total_biomass_kg~Exposure + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))
 model7 <- glm(Total_biomass_kg~Depth*Habitat + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))   
 model8 <- glm(Total_biomass_kg~Temp*Habitat + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))    
 model9 <- glm(Total_biomass_kg~Relief_score*Habitat + W_y + Year,family = Gamma(link =log),data = IOS_data_SAC)

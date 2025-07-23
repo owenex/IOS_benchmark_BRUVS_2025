@@ -19,7 +19,7 @@ library(gridExtra)
 # Rarefaction -------------------------------------------------------------
 
 ## read in BRUVS metadata
-meta <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_metadata.csv')
+meta <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/IoS_BEN_metadata.csv')
 
 ## remove unnecessary columns 
 meta2 <- meta[,c('GRTS_ID','Broadscale_habitat')]
@@ -38,7 +38,7 @@ circa_list <- subset(meta2,meta2$Broadscale_habitat == 'Circalittoral rock')
 circa_list <- as.list(circa_list$ID)
 
 ## read in primer style matrix of occurrence data by site
-pres_ab <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/iNEXT_data_format.csv')
+pres_ab <- read.csv('~/IOS_benchmark_BRUVS_2025/EA_supporting_code/Data/iNEXT_data_format.csv')
 ## turn species into presence/absence
 pres_abs <- pres_ab
 pres_abs[pres_abs>=1]<-1
@@ -165,14 +165,8 @@ p3 <- ggiNEXT(out.inc2, type=1,se=TRUE) +
 p3
 
 ## merge plots
-p4 <- grid.arrange(p3, p2, ncol=2)
-p4
-
-##save
-ggsave("C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/plots/Rarefaction_cures.tiff", plot = p4, dpi=600, unit = "mm", height = 150, width = 350)
-
-
-
+Figure7 <- grid.arrange(p3, p2, ncol=2)
+Figure7
 
 
 

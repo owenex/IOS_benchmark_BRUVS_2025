@@ -37,7 +37,8 @@ library(sf)
 library(dplyr)
 library(ggplotify)
 library(MuMIn)
-
+library(car)
+library(emmeans)
 
 ```
 
@@ -169,6 +170,57 @@ var(IOS_data$Total_biomass_kg)
 sd(IOS_data$Total_biomass_kg)
 hist(IOS_data$Total_biomass_kg)
 
+## envo Pearsons and VIF tests
+envo_variables_numeric <- IOS_data[,c('Depth','Temp','Remoteness','Exposure','Relief_score','Slope_mean','Rug_range')]
+envo_variables_numeric <-mutate_all(envo_variables_numeric, function(x)as.numeric(as.character(x)))
+
+#### Calculate Pearson correlation coefficient ####
+correlation_matrix <- cor(envo_variables_numeric)
+print(correlation_matrix)
+
+## Setting up the model
+Richness_model <- glm(Richness ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+MaxN_model <- glm(Total_MaxN ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+Div_model <- glm(shannon_index ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+Biomass_model <- glm(Total_biomass_kg ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+
+#### Calculating VIF ####
+vif_Richness <- as.data.frame(vif(Richness_model))
+vif_Mean_MaxN <- as.data.frame(vif(MaxN_model))
+vif_Div <- as.data.frame(vif(Div_model))
+vif_Biomass_index <- as.data.frame(vif(Biomass_model))
+
+## merge together
+vif_all <- vif_Richness %>%
+  cbind(vif_Mean_MaxN) %>%
+  cbind(vif_Div) %>%
+  cbind(vif_Biomass_index)
+vif_all
+
+### rerun omitting mean slope and ruggedness
+## subset variables of interest for pearson
+envo_variables_numeric <- IOS_data[,c('Depth','Temp','Remoteness','Exposure','Relief_score')]
+envo_variables_numeric <-mutate_all(envo_variables_numeric, function(x)as.numeric(as.character(x)))
+
+#### Calculate Pearson correlation coefficient ####
+correlation_matrix <- cor(envo_variables_numeric)
+print(correlation_matrix)
+
+## Setting up the model
+Richness_model <- lm(Richness ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
+MaxN_model <- lm(Total_MaxN ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
+Biomass_model <- lm(Total_biomass_kg ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
+
+#### Calculating VIF ####
+vif_Richness <- as.data.frame(vif(Richness_model))
+vif_Mean_MaxN <- as.data.frame(vif(MaxN_model))
+vif_Biomass_index <- as.data.frame(vif(Biomass_model))
+
+## merge together
+vif_all <- vif_Richness %>%
+  cbind(vif_Mean_MaxN) %>%
+  cbind(vif_Biomass_index)
+vif_all
 
 ```
 

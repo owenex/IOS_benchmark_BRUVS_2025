@@ -20,7 +20,7 @@ Owen M. Exeter 1*, Annette C. Broderick 1, Xavier A. Harrison 1, Francesco Garzo
 
 1 Centre for Ecology and Conservation, Faculty of Environment, Science and Economy, University of Exeter, Penryn, Cornwall, TR10 9FE, UK.
 
-2 Hatherly Laboratories, University of Exeter, Prince of Wales Road, Exeter, EX4 4PS, UK
+2 Hatherly Laboratories, University of Exeter, Prince of Wales Road, Exeter, EX4 4PS, UK
 
 3 Isles of Scilly Inshore Fisheries and Conservation Authority, Town Hall, St. Mary's, Isles of Scilly, TR21 0LW, UK
 

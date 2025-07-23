@@ -1,0 +1,59 @@
+Species_latin,Class,a,b,Type
+Acantholabrus palloni,Fish,0.0108,3.074,TRUE
+Ammodytidae,Fish,0.0047,2.8,TRUE
+Atherina presbyter,Fish,0.0051,3.13,TRUE
+Capros aper,Fish,0.0295,2.76,TRUE
+Centrolabrus exoletus,Fish,0.0047,3.23,TRUE
+Chelidonichthys cuculus,Fish,0.0074,3.08,TRUE
+Chelidonichthys lastoviza,Fish,0.0102,3.03,TRUE
+Chelidonichthys lucerna,Fish,0.0098,2.99,TRUE
+Chelon labrosus,Fish,0.0093,3.07,TRUE
+Conger conger,Fish,0.0003,3.42,TRUE
+Ctenolabrus rupestris,Fish,0.0123,3,TRUE
+Eutrigla gurnardus,Fish,0.0079,3.02,TRUE
+Gadus morhua,Fish,0.0069,3.08,TRUE
+Gaidropsarus vulgaris,Fish,0.0081,2.9,TRUE
+Galeorhinus galeus,Fish,0.0064,2.987,TRUE
+Hyperoplus lanceolatus,Fish,0.0051,2.79,TRUE
+Labrus bergylta,Fish,0.0081,3.16,TRUE
+Labrus mixtus,Fish,0.0049,3.28,TRUE
+Merlangius merlangus,Fish,0.0065,3.05,TRUE
+Molva molva,Fish,0.0036,3.1,TRUE
+Mullus surmuletus,Fish,0.0085,3.15,TRUE
+Pollachius pollachius,Fish,0.0089,3.02,TRUE
+Pollachius virens,Fish,0.008513333,3.039394444,TRUE
+Sardina pilchardus,Fish,0.0058,3.12,TRUE
+Scomber scombrus,Fish,0.004557222,3.245333333,TRUE
+Scyliorhinus canicula,Fish,0.0013,3.25,TRUE
+Scyliorhinus stellaris,Fish,0.001546,3.293,TRUE
+Solea solea,Fish,0.0068,3.09,TRUE
+Sparus aurata,Fish,0.0155,2.98,TRUE
+Spinachia spinachia,Fish,0.0021,3,TRUE
+Spondyliosoma cantharus,Fish,0.0135,3.06,TRUE
+Symphodus melops,Fish,0.0071,3.18,TRUE
+Thunnus thynnus,Fish,0.022642308,3.013769231,TRUE
+Trachurus trachurus,Fish,0.009903281,2.979848438,TRUE
+Trisopterus luscus,Fish,0.0087,3.12,TRUE
+Trisopterus minutus,Fish,0.0069,3.13,TRUE
+Zeus faber,Fish,0.026752917,2.889979167,TRUE
+Maja brachydactyla,Crustacean,0.1744,3.241,Proxy
+Callionymus lyra,Fish,0.0158,2.7,TRUE
+Cancer pagurus,Crustacean,0.18645,3.145333333,TRUE
+Carcinus maenas,Crustacean,0.03725,2.872,TRUE
+Necora puber,Crustacean,0.6383,2.572,TRUE
+Palinurus elephas,Crustacean,1.3206375,2.730875,TRUE
+Homarus gammarus,Crustacean,0.0387,2.898,TRUE
+Parablennius gattorugine,Fish,0.0115,3.1,TRUE
+Pomatoschistus minutus,Fish,0.009281667,3.0841,TRUE
+Liocarcinus depurator,Crustacean,0.38425,2.878,TRUE
+Loligo vulgaris,Chelapod,0.13345,2.473,TRUE
+Thorogobius ephippiatus,Fish,0.009281667,3.0841,Proxy
+Corystes cassivelaunus,Crustacean,0.8035,3.15,TRUE
+Pholis gunnellus,Fish,0.0033,3.06,TRUE
+Gobiusculus flavescens,Fish,0.009281667,3.0841,Proxy
+Octopus vulgaris,Chelapod,0.628314286,3.009,TRUE
+sandeel_spp,Fish,0.0047,2.8,Proxy
+wrasse_spp,Fish,0.00816,3.1488,Proxy
+goby_spp,Fish,0.009281667,3.0841,Proxy
+cod_spp,Fish,0.007982667,3.077878889,Proxy
+Ammodytes tobianus,Fish,0.0047,2.8,TRUE

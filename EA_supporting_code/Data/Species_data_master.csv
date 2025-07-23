@@ -1,0 +1,85 @@
+Species_latin,Order,Functional_group,Simplified_functional_group,Commercial_group,Code
+Aequorea victoria,Leptothecata,Cnidaria,,NA,283998
+Asterias rubens,Forcipulatida,Other demersal invertebrates,Demersal invertebrates,Other fishes & inverts,123776
+Callionymus lyra,Perciformes,Small demersals (<30 cm),Demersal fish,Perch likes,126792
+Cancer pagurus,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107276
+Carcinus maenas,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107381
+Centrolabrus exoletus,Labriformes,Small reef assoc. fish (<30 cm),Reef associated fish,Perch likes,126961
+Halichoerus grypus,Phocidae,Marine mammals,Marine mammals,NA,137130
+Chelon labrosus,Mugiliformes,Medium demersals (30 - 89 cm),Demersal fish,Perch likes,126977
+Conger conger,Anguilliformes,Large demersals (>=90 cm),Demersal fish,Other fishes & inverts,126285
+Ctenolabrus rupestris,Labriformes,Small reef assoc. fish (<30 cm),Reef associated fish,Perch likes,126964
+Cyanea lamarckii,Semaeostomeae,Cnidaria,,,135302
+Echinus esculentus,Echinoida ,Other demersal invertebrates,Demersal invertebrates,Other fishes & inverts,124287
+Gaidropsarus vulgaris,Gadiformes,Medium demersal (30 - 89 cm),Demersal fish,Other fishes & inverts,126458
+Galeorhinus galeus,Carcharhiniformes,Large sharks (>= 90 cm),Sharks and rays,Sharks and rays,105820
+Gobiusculus flavescens,Gobiiformes,Small reef assoc. fish (<30 cm),Reef associated fish,Perch likes,126898
+Halichoerus grypus,Carnivora,Marine mammals,Marine mammals,NA,137130
+Holothuria forskali,Holothuriida,Other demersal invertebrates,Demersal invertebrates,Other fishes & inverts,124501
+Homarus gammarus,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107253
+Hyperoplus lanceolatus,Trachiniformes,Small  benthopelagics (<30 cm),Benthopelagic fish,Other fishes & inverts,126756
+Labrus bergylta,Labriformes,Medium reef assoc. fish (30 - 89 cm),Reef associated fish,Perch likes,126965
+Labrus mixtus,Labriformes,Medium reef assoc. fish (30 - 89 cm),Reef associated fish,Perch likes,151501
+Loligo vulgaris,Myopsida,Cephalopods,Cephalopods,Other fishes & inverts,140271
+Maja brachydactyla,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107347
+Marthasterias glacialis,Forcipulatida,Other demersal invertebrates,Demersal invertebrates,Other fishes & inverts,123803
+Molva molva,Gadiformes,Large demersals (>=90 cm),Demersal fish,Cod likes,126461
+Morus bassanus,Suliformes,Seabirds,Seabirds,NA,148776
+Mullus surmuletus,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Perch likes,126986
+NA,Gadiformes,NA,NA,Cod likes,1
+NA,Ctenophora ,Cnidaria,,,2
+NA,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,3
+NA,,,,,4
+NA,Gobiiformes,,,Perch likes,7
+NA,,Cnidaria,,,8
+NA,,,,,10
+NA,Semaeostomeae,Cnidaria,,,11
+NA,Trachiniformes,Small demersals (<30 cm),,Other fishes & inverts,6
+NA,NA,NA,NA,NA,5
+Necora puber,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107398
+Nucella lapillus,Neogastropoda,Other demersal invertebrates,Demersal invertebrates,Molluscs,140403
+Octopus vulgaris,Octopoda,Cephalopods,Cephalopods,Other fishes & inverts,140605
+Pagurus bernhardus,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107232
+Palinurus elephas,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107703
+Parablennius gattorugine,Blenniiformes,Small demersals (<30 cm),Demersal fish,Other fishes & inverts,126770
+Pollachius pollachius,Gadiformes,Large benthopelagics (>=90 cm),Benthopelagic fish,Cod likes,126440
+Pollachius virens,Gadiformes,Large demersals (>=90 cm),Demersal fish,Cod likes,126441
+Pomatoschistus minutus,Gobiiformes,Small demersals (<30 cm),Demersal fish,Perch likes,126928
+Scyliorhinus canicula,Carcharhiniformes,Small to medium sharks (<90 cm),Sharks and rays,Sharks & rays,105815
+Scyliorhinus stellaris,Carcharhiniformes,Large sharks (>= 90 cm),Sharks and rays,Sharks & rays,105814
+Sparus aurata,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Perch likes,151523
+Symphodus melops,Labriformes,Small reef assoc. fish (<30 cm),Reef associated fish,Perch likes,273571
+Thorogobius ephippiatus,Gobiiformes,Small demersals (<30 cm),Demersal fish,Perch likes,126937
+Trisopterus luscus,Gadiformes,Small demersals (<30 cm),Demersal fish,Perch likes,126445
+Trisopterus minutus,Gadiformes,Medium benthopelagics (30 - 89 cm),Benthopelagic fish,Cod likes,126446
+Wrasse spp,Labriformes,,,Perch likes,NA
+Syngnathus acus,Syngnathiformes,Medium reef assoc. fish (30 - 89 cm),Reef associated fish,Other fishes & inverts,127387
+Spinachia spinachia,Gasterosteoidei,Small reef assoc. fish (<30 cm),Reef associated fish,Other fishes & inverts,126508
+Clupea harengus,Clupeiformes,Medium pelagics (30 - 89 cm),Pelagic fish,Herring likes,126417
+Palaemon serratus,Decapoda,Shrimps,Shrimps,Crustaceans,107616
+Spondyliosoma cantharus,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Perch likes,127066
+Scomber scombrus,Scombriformes,Medium pelagics (30 - 89 cm),Pelagic fish,Perch likes,127023
+pelagics,,,Pelagic fish,,9
+Sardina pilchardus,Clupeiformes,Small pelagics (<30 cm),Pelagic fish,Herring likes,126421
+Gobius paganellus,Gobiiformes,Small demersals (<30 cm),Demersal fish,Perch-likes,126893
+Ophiothrix fragilis,Ophiurida,Other demersal invertebrates,Demersal invertebrates,Other fishes & inverts,125131
+Solea solea,Pleuronectiformes,Small to medium flatfishes (<90 cm),Flatfishes,Flatfishes,127160
+Zeus faber,Zeiformes,Medium benthopelagics (30 - 89 cm),Benthopelagic fish,Other fishes & inverts,127427
+Merlangius merlangus,Gadiformes,Medium benthopelagics (30 - 89 cm),Benthopelagic fish,Cod likes,126438
+Eutrigla gurnardus,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Scorpionfishes,150637
+Chelidonichthys lucerna,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Scorpionfishes,127262
+Chelidonichthys cuculus,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Scorpionfishes,127259
+Gadus morhua,Gadiformes,Large benthopelagics (>=90 cm),Benthopelagic fish,Cod likes,126436
+Pomatoschistus microps,Gobiiformes,Small demersals (<30 cm),Demersal fish,Perch-likes,126927
+Chelidonichthys lastoviza,Perciformes,Medium demersals (30 - 89 cm),Demersal fish,Scorpionfishes,127261
+Liocarcinus depurator,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107387
+Ammodytes tobianus,Perciformes ,Small demersals (<30 cm),Demersal fish,Perch likes,126752
+Delphinus delphis,Artiodactyla,Cetacean,Cetacean,NA,137094
+Trachurus trachurus,Carangiformes,Medium pelagics (30 - 89 cm),Pelagic fish,Perch-likes,126822
+Atherina presbyter,Atheriniformes,Small pelagics (<30 cm),Pelagic fish,Other fishes & inverts,127430
+Pholis gunnellus,Perciformes,Small demersals (<30 cm),Demersal fish,Perch likes,126996
+Capros aper,Acanthuriformes,Small demersals (<30 cm),Demersal fish,Perch likes,127419
+Acantholabrus palloni,Labriformes,Small reef assoc. fish (<30 cm),Reef associated fish,Perch likes,126957
+Thunnus thynnus,Scombriformes,Large pelagics (>=90 cm),Pelagic fish,Tuna & billfishes,127029
+Corystes cassivelaunus,Decapoda,"Lobsters, crabs",Crustaceans,Crustaceans,107277
+Phalacrocorax aristotelis,Suliformes,Seabirds,Seabirds,NA,137178

@@ -1,0 +1,2017 @@
+---
+title: "IOS BEN models"
+author: "Owen Exeter"
+date: "20/06/2024"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#### Libraries
+```{r results='hide', message=FALSE, warning=FALSE,echo=FALSE, include=FALSE}
+library(tidyverse)
+library(vegan)
+library(scales)
+library(arm)
+library(ggsignif)
+library(rstatix)
+library(multcompView)
+library(ggthemes)
+library(data.table)
+library(spatialreg)
+library(spatialEco)
+library(spdep)
+library(sf)
+library(spaMM)
+library(plotrix)  
+library(grid)
+library(gridExtra)
+library(spaMM)
+library(broom)
+library(lmtest)
+library(MuMIn)
+library(plotrix) 
+library(patchwork)
+library(cowplot)
+library(ggpubr)
+
+
+
+library(emmeans)
+library(MASS)
+library(scales)
+library(arm)
+library(ggpubr)
+library(rstatix)
+library(multcompView)
+library(ggthemes)
+library(data.table)
+library(glmmTMB)
+library(spatialreg)
+library(spatialEco)
+library(spdep)
+library(sp)
+library(lme4)
+library(dplyr)
+
+```
+
+### 0 | Read in ecological and metadata
+```{r, echo=FALSE}
+### Data processing
+## read in BRUVS observation data
+species_obs <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_observations.csv')
+## just demersal species
+reef_fish <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_observations_demerselfish.csv')
+## read in lengths data
+species_lengths <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/Lengths/IoS_BEN_Lengths.csv')
+
+## read in processed biomass data
+site_biomass <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IOS_BEN_biomass.csv')
+## read in metadata
+envo_variables <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_metadata.csv')
+
+```
+
+### 1 | BEN BRUVS SURVEY 
+#### 1.1 Read in and calculate ecological indicies from BRUV survey data
+```{r}
+
+## calculate species richness
+deployment_richness <- reef_fish %>%
+  group_by(GRTS_ID) %>%
+  summarise(Richness = length(Species))
+## calculate mean maxN
+deployment_maxn <- reef_fish %>%
+  group_by(GRTS_ID) %>%
+  summarise(Mean_MaxN = mean(MaxN))
+## merge
+mean_values1 <- left_join(deployment_maxn,deployment_richness, by='GRTS_ID')
+
+## calculate total maxN
+deployment_abundance <- reef_fish %>%
+  group_by(GRTS_ID) %>%
+  summarise(Total_MaxN = sum(MaxN))
+deployment_abundance$Total_MaxN <-deployment_abundance$Total_MaxN
+## merge
+mean_values2 <- left_join(mean_values1,deployment_abundance, by='GRTS_ID')
+
+## calculate shannons divserity 
+div <- species_obs[c('GRTS_ID','Species','MaxN')] 
+shannon_diversity <- div %>%
+  group_by(GRTS_ID) %>%
+  summarise(shannon_index = diversity(MaxN))
+shannon_diversity_site <- shannon_diversity[c('GRTS_ID','shannon_index')]
+## merge
+mean_values3 <-  left_join(mean_values2,shannon_diversity_site, by='GRTS_ID')
+
+## calculate mean length per sample 
+## subset to just benthic associated species 
+benthic_list <- as.list(unique(reef_fish$Species))
+species_lengths <- subset(species_lengths,species_lengths$Species %in% benthic_list)
+## calculate mean length
+deployment_length <- species_lengths %>%
+  group_by(GRTS_ID) %>%
+  summarise(Mean_length = mean(Length))
+## convert to cm
+deployment_length$Mean_length <- deployment_length$Mean_length/10
+## merge
+mean_values4 <-  left_join(mean_values3,deployment_length, by='GRTS_ID')
+
+## calculate total biomass per sample 
+site_biomass <- site_biomass[c('GRTS_ID','Total_biomass_kg')]
+mean_values5 <- left_join(mean_values4,site_biomass, by='GRTS_ID')
+
+## join environmental variables of interest 
+## remove duplicate rows
+envo_variables <- envo_variables[,2:27]
+envo_variables <- distinct(envo_variables)
+
+## subset columns of interest
+envo_variables_short <- envo_variables[,c('GRTS_ID','Date','Broadscale_habitat','Habitat','Mixed','Relief_score','Lat','Lon','TimeIN','Depth','Temp','Rug_range','Remoteness','Exposure','Slope_mean','MCZ','SAC','Height_of_tide')]
+## Re-define habitat and relief as a categorical variables
+envo_variables_short$Habitat <- as.factor(envo_variables_short$Habitat)      
+envo_variables_short$Broadscale_habitat <- as.factor(envo_variables_short$Broadscale_habitat)      
+envo_variables_short$Relief_score <- as.factor(envo_variables_short$Relief_score)      
+## merge
+IOS_data <- merge(mean_values5,envo_variables_short, by='GRTS_ID')
+
+## assign a year and month
+IOS_data$Year <- substr(IOS_data$Date,7,10)
+envo_variables_short$Year <- substr(envo_variables_short$Date,7,10)
+IOS_data$Month <- substr(IOS_data$Date,4,5)
+
+## remove SVnStns for later analysis
+IOS_data_SAC <- subset(IOS_data,IOS_data$SAC > 0)
+
+```
+
+
+#### 1.2 Explore the data and stats for text
+```{r, results='hide'}
+## Richness
+mean(IOS_data$Richness)
+var(IOS_data$Richness)
+sd(IOS_data$Richness)
+hist(IOS_data$Richness)
+dispersion_index_rich <- var(IOS_data$Richness) / mean(IOS_data$Richness)
+dispersion_index_rich
+
+## shannon_index
+mean(IOS_data$shannon_index)
+var(IOS_data$shannon_index)
+sd(IOS_data$shannon_index)
+hist(IOS_data$shannon_index)
+
+## Total maxn
+mean(IOS_data$Total_MaxN)
+var(IOS_data$Total_MaxN)
+sd(IOS_data$Total_MaxN)
+hist(IOS_data$Total_MaxN)
+dispersion_index_maxn <- var(IOS_data$Total_MaxN) / mean(IOS_data$Total_MaxN)
+dispersion_index_maxn
+
+## Length
+IOS_data_length <- na.omit(IOS_data)
+IOS_data_length$Mean_length <- as.numeric(IOS_data_length$Mean_length)
+mean(IOS_data_length$Mean_length)
+var(IOS_data_length$Mean_length)
+hist(IOS_data_length$Mean_length)
+
+## Biomass
+mean(IOS_data$Total_biomass_kg)
+var(IOS_data$Total_biomass_kg)
+sd(IOS_data$Total_biomass_kg)
+hist(IOS_data$Total_biomass_kg)
+
+
+```
+
+#### 1.3 Proportion plots for Figure 2
+```{r, warning=FALSE}
+## read in obs data with 0 values for non present sites
+species <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/iNEXT_data_format2.csv')
+## convert wide to long
+long <- melt(setDT(species), id.vars = "ID", variable.name = "Species")
+
+## rename columns
+colnames(long) <- c('GRTS_ID','Species','MaxN')
+long$GRTS_ID <- gsub("IOS_","",as.character(long$GRTS_ID))
+long$GRTS_ID <- as.integer(long$GRTS_ID)
+
+#species mean maxn
+maxN_mean <- long %>%
+  group_by(Species) %>%
+  summarise(Mean_MaxN = mean(MaxN))
+maxN_sd <- long %>%
+  group_by(Species) %>%
+  summarise(SD = sd(MaxN))
+maxN_sum <- long %>%
+  group_by(Species) %>%
+  summarise(Total_MaxN = sum(MaxN))
+species_maxn<-cbind(maxN_mean,maxN_sd,maxN_sum)
+species_maxn<-species_maxn[,c(1,2,4,6)]
+
+## bind the families to species using merged Obs and meta data
+family_habs <- read.csv('C:/Users/oe247/OneDrive - University of Exeter/PhD/IoS/analysis/5_BEN/BRUVS_analysis/IOS_BEN_BRUVS_analysis/processed_data/IoS_BEN_metadata_obs.csv')
+habitat <- family_habs[,c('GRTS_ID','Broadscale_habitat')]
+habitat$Habitat <- as.factor(ifelse(habitat$Broadscale_habitat == 'Circalittoral rock' | habitat$Broadscale_habitat ==  'Infralittoral rock','Reefs','Sediment'))
+habitat<-unique(habitat)
+family <- family_habs[,c('Species','Species_latin','Family','Simplified_functional_group')]
+family <- unique(family)
+
+species_summary<-left_join(species_maxn,family,by=c('Species'))
+species_summary<-unique(species_summary)
+
+## bind habitats and families to long format observations
+species_obs<-left_join(long,habitat,by=c('GRTS_ID'))
+species_obs<-left_join(species_obs,family,by=c('Species'))
+species_obs <- unique(species_obs)
+
+## number of positive occurrences by family per habitat type
+family_hab <- subset(species_obs,species_obs$MaxN>0)
+family_hab <- family_hab[,c('GRTS_ID','Family','Habitat')]
+family_hab <- family_hab[!duplicated(family_hab),]
+family_hab$count <- 1
+hab_family_count <- family_hab %>%
+  group_by(Family,Habitat) %>%
+  summarise(Count = sum(count)) 
+hab_family_prop <- hab_family_count
+hab_family_prop$Proportion <- (hab_family_prop$Count / 280)*100
+
+## filter top 10 most observed (in terms of number of deployments) families and group the rest together as 'Other' for plotting
+top_ten <- hab_family_prop %>%
+  group_by(Family) %>%
+  summarise(Total = sum(Proportion))
+top_ten_family <- top_n(top_ten,11,Total)
+top_ten_family_list <- as.list(top_ten_family$Family)
+all <- hab_family_prop[hab_family_prop$Family %in% top_ten_family_list,] 
+all <- all[!all$Family == 'Other',] 
+## create factor levels for plotting
+all$Family <- factor(all$Family, levels = c("Labridae","Gadidae", "Ammodytidae", "Scyliorhinidae","Cancridae","Echinidae","Carcinidae","Majidae","Asteriidae","Palinuridae"))
+all$Habitat <- factor(all$Habitat, levels = rev(c('Reefs','Sediment')))
+
+## plot proportion of deployments by habitat
+fam_prop_plot <- ggplot(data=all,aes(x=Proportion,y=Family,fill = Habitat)) + 
+  geom_bar(position="stack", stat="identity",col= 'black',linewidth=0.2,width=0.9, alpha = 0.8)+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values=c("orange","#077DAA"))+
+  scale_x_continuous(limits = c(0,100),expand = c(0, 0)) +
+  geom_hline(yintercept=7.5,linetype = "twodash") +
+  xlab('Proportion (%) of deployments')+
+  theme_bw()+
+  theme(legend.position=c(0.75,.25),legend.text=element_text(size=30),legend.title=element_text(size=30,face="bold"),axis.text.x =element_blank(),axis.text.y = element_text(size=20,face = "italic"),axis.title.y = element_blank(),axis.title.x = element_blank())+
+  guides(fill=guide_legend(title="Habitat"),plot.margin = unit(c(0.5, 5, 0.5, 5), "mm"))
+fam_prop_plot
+
+#### boxplot of mean maxn for same families
+## subset observations to top ten list 
+maxn_family <- species_obs[,c('GRTS_ID','Family','MaxN','Habitat')]
+maxn_family <- maxn_family[maxn_family$Family %in% top_ten_family_list,] 
+maxn_family <- maxn_family[!maxn_family$Family == 'Other',]
+
+## mean maxn per family and deployment
+maxN_family_count <- maxn_family %>%
+  group_by(Family,GRTS_ID) %>%
+  summarise(Sum = sum(MaxN))
+## mean + sd maxn by families and species
+maxN_family_mean <- maxN_family_count %>%
+  group_by(Family) %>%
+  summarise(Mean_MaxN = mean(Sum))
+maxN_family_sd <- maxN_family_count %>%
+  group_by(Family) %>%
+  summarise(SD = sd(Sum))
+
+##add in habitat for point colours
+habs<-unique(species_obs[,c('GRTS_ID','Habitat')])
+maxN_family_count<- maxN_family_count %>%
+  left_join(habs, by = "GRTS_ID")
+maxN_family_count$Habitat <- factor(maxN_family_count$Habitat, levels = rev(c('Reefs','Sediment')))
+## order for plotting
+maxN_family_count$Family <- factor(maxN_family_count$Family, levels = c("Labridae","Gadidae", "Ammodytidae" ,"Scyliorhinidae","Cancridae","Echinidae","Carcinidae","Majidae","Asteriidae","Palinuridae"))
+
+## boxplot with point colours being habitat type
+fam_maxn_plot <-ggplot() + 
+  geom_point(data=maxN_family_count,aes(x = Sum, y = Family,fill=Habitat),size = 2, alpha = 0.6, shape = 21, position=position_jitter(0.1), pch=21, show.legend = F) +
+  scale_fill_manual(values=c("orange","#077DAA"))+
+  geom_boxplot(data=maxN_family_count,aes(x = Sum, y = Family),outlier.shape = NA, alpha = 0.6,varwidth = TRUE,fill='grey') + 
+  scale_x_continuous(limits = c(0,15),expand = c(0, 0)) +
+  scale_y_discrete(limits=rev)+
+  geom_hline(yintercept=7.5,linetype = "twodash") +
+  theme_bw() +
+  #xlab('Mean MaxN')+
+  theme(axis.text.x =  element_blank(),axis.title.y = element_blank(),axis.title.x = element_blank(),axis.text.y = element_blank(),plot.margin = unit(c(0.5, 5, 0.5, 5), "mm"))
+fam_maxn_plot
+
+#### repeat process for species
+## number of positive occurrences by family per habitat type
+species_hab <- species_obs[,c('GRTS_ID','Species_latin','Habitat','MaxN')]
+species_hab <- species_hab[!duplicated(species_hab),]
+species_hab <- subset(species_hab,species_hab$MaxN>0)
+species_hab$count <- 1
+hab_species_count <- species_hab %>%
+  group_by(Species_latin,Habitat) %>%
+  summarise(Count = sum(count)) 
+
+## number of positive occurrences by family per habitat type
+hab_species_prop <- hab_species_count
+hab_species_prop$Proportion <- (hab_species_prop$Count / 280)*100
+
+## sum hab values for overall proportion
+species_prop_total <- hab_species_prop %>%
+  group_by(Species_latin) %>%
+  summarise(Count = sum(Proportion)) 
+
+## filter top 10 most observed (in terms of number of deployments) families and group the rest together as 'Other'
+top_ten <- hab_species_prop %>%
+  group_by(Species_latin) %>%
+  summarise(Total = sum(Proportion))
+top_ten_species <- top_n(top_ten,11,Total)
+top_ten_species_list <- as.list(top_ten_species$Species_latin)
+all2 <- hab_species_prop[hab_species_prop$Species_latin %in% top_ten_species_list,] 
+all2 <- na.omit(all2)
+
+## factor levels for plotting
+all2$Species_latin <- factor(all2$Species_latin, levels = c("Pollachius pollachius","Labrus bergylta", "Labrus mixtus", "Ctenolabrus rupestris","Centrolabrus exoletus","Symphodus melops","Trisopterus luscus","Scyliorhinus canicula","Cancer pagurus","Echinus esculentus"))
+all2$Species_latin[is.na(all2$Species_latin)] <- "Echinus esculentus"
+all2$Habitat <- factor(all2$Habitat, levels = rev(c('Reefs','Sediment')))
+
+## plot proportion of deployments by habitat
+spp_prop_plot <- ggplot(data=all2,aes(x=Proportion,y=Species_latin,fill = Habitat)) + 
+  geom_bar(position="stack", stat="identity",col= 'black',linewidth=0.2,width=0.9, alpha = 0.8)+
+  scale_y_discrete(limits=rev)+
+  scale_fill_manual(values=c("orange","#077DAA"))+
+  scale_x_continuous(limits = c(0,100),expand = c(0, 0)) +
+  geom_hline(yintercept=3.5,linetype = "twodash") +
+  xlab('Proportion (%) of deployments')+
+  theme_bw()+
+  theme(legend.position = "none",axis.text.x = element_text(size=16),axis.text.y = element_text(size=20,face = "italic"),axis.title.y = element_blank(),axis.title.x =element_text(size=20),plot.margin = unit(c(0.5, 5, 0.5, 5), "mm"))
+spp_prop_plot 
+
+#### boxplot of mean maxn for same species
+## subset observations to top ten list 
+maxn_species <- species_obs[,c('GRTS_ID','Species_latin','MaxN')]
+maxn_species <- maxn_species[maxn_species$Species_latin %in% top_ten_species_list,] 
+
+## maxn per species and deployment
+maxN_species_count <- maxn_species %>%
+  group_by(Species_latin,GRTS_ID) %>%
+  summarise(Mean_MaxN = mean(MaxN))
+
+## mean maxn/sd per species
+mean_maxN_species <- maxn_species %>%
+  group_by(Species_latin) %>%
+  summarise(Mean_MaxN = mean(MaxN))
+sd_maxN_species <- maxn_species %>%
+  group_by(Species_latin) %>%
+  summarise(SD = sd(MaxN))
+
+## exclude sandeels due to hyperabundance
+maxN_species_count <- na.omit(maxN_species_count)
+
+## order for plotting
+maxN_species_count$Species_latin <- factor(maxN_species_count$Species_latin, levels = c("Pollachius pollachius","Labrus bergylta", "Labrus mixtus", "Ctenolabrus rupestris","Centrolabrus exoletus","Symphodus melops","Trisopterus luscus","Scyliorhinus canicula","Cancer pagurus","Echinus esculentus"))
+maxN_species_count<- maxN_species_count %>%
+  left_join(habs, by = "GRTS_ID")
+maxN_species_count$Habitat <- factor(maxN_species_count$Habitat, levels = rev(c('Reefs','Sediment')))
+
+## boxplot with point colours being habitat type
+spp_maxn_plot <-ggplot() + 
+  geom_point(size = 2, alpha = 0.4, shape = 21,position=position_jitter(0.1), pch=21, show.legend = F) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.9,varwidth = TRUE,fill='grey') + 
+  #scale_fill_manual(values = c('#CD534CFF','#EFC000FF','#7AA6DCFF','#003C67FF'))+
+  geom_point(data=maxN_species_count,aes(x = Mean_MaxN, y = Species_latin,fill=Habitat),size = 2, alpha = 0.6, shape = 21, position=position_jitter(0.1), pch=21, show.legend = F) +
+  scale_fill_manual(values=c("orange","#077DAA"))+
+  geom_boxplot(data=maxN_species_count,aes(x = Mean_MaxN, y = Species_latin),outlier.shape = NA, alpha = 0.6,varwidth = TRUE,fill='grey') + 
+  scale_x_continuous(limits = c(0,35),expand = c(0, 0)) +
+  scale_y_discrete(limits=rev)+
+  geom_hline(yintercept=3.5,linetype = "twodash") +
+  theme_bw() +
+  xlab('Relative adundance (MaxN)')+
+  theme(axis.text.x = element_text(size=16),axis.title.x =element_text(size=20),axis.text.y = element_blank(),axis.title.y = element_blank(),plot.margin = unit(c(0.5, 5, 0.5, 5), "mm"))
+spp_maxn_plot
+
+#### combine the plots for Figure 2
+pp1 <- fam_prop_plot  /  spp_prop_plot
+pp2 <- fam_maxn_plot / spp_maxn_plot
+Figure2 <- pp1 | pp2 
+Figure2
+
+
+
+```
+
+#### 1.4 Length histogram plots for Figure 3
+```{r, warning=FALSE}
+
+## select list of key indicator/commercially targeted species from list of data suitable species
+indicator_spp <- as.list(c("Small_spotted_catshark","Nursehound","Pollack","Ballan_wrasse","Cuckoo_wrasse","Edible_crab","Common_spiny_lobster"))
+indicator_lngths <- subset(species_lengths,species_lengths$Species %in% indicator_spp)
+
+#### histogram plot of length distributions
+
+## set order of species for logical plotting
+indicator_lngths$Species_latin <-  factor(indicator_lngths$Species_latin, levels=c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"))
+
+## generate lines of maturity lengths from Fishbase if available (exclude if not)
+maturity <- data.frame(Species_latin = c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"), Z = c(500,780,410,170,160,NA,NA))
+maturity$Species_latin <-  factor(maturity$Species_latin, levels=c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Mullus surmuletus","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"))
+
+## generate lines of MLS lengths from IOS IFCA if available (exclude if not)
+size_limit <- data.frame(Species_latin = c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"), Z = c(NA,NA,300,NA,NA,140,110))
+size_limit$Species_latin <-  factor(size_limit$Species_latin, levels=c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"))
+## generate lines of MLS lengths from IOS IFCA if available (exclude if not)
+size_limit2 <- data.frame(Species_latin = c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"), Z = c(NA,NA,NA,NA,NA,160,NA))
+size_limit2$Species_latin <-  factor(size_limit2$Species_latin, levels=c("Scyliorhinus canicula","Scyliorhinus stellaris","Pollachius pollachius","Labrus bergylta","Labrus mixtus","Cancer pagurus","Palinurus elephas"))
+indicator_lngths
+
+## ggplot by without type
+Figure3 <- ggplot(indicator_lngths, aes(x=Length,fill=Habitat))+
+  geom_histogram(col='black',size=0.5,alpha=0.7)+
+  scale_fill_manual(values=c("#077DAA","orange"),name = "Main habitat")+
+  geom_vline(data = maturity, aes(xintercept = Z),linetype = "twodash",col='darkblue',linewidth=1.1)+
+  geom_vline(data = size_limit, aes(xintercept = Z),linetype = "twodash",col='red',linewidth=1.1)+
+  geom_vline(data = size_limit2, aes(xintercept = Z),linetype = "twodash",col='red',linewidth=1.1)+
+  facet_wrap(Species_latin ~ ., scales="free", ncol = 2)+
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0), breaks = ~round(unique(pretty(.))))+
+  labs(x = "Length (mm)", y = "Frequency")+
+  theme_minimal()+
+  theme(legend.position="none",axis.title = element_text(size = 18),axis.text = element_text(size = 16),strip.text.x = element_text(size = 16),panel.background = element_rect(fill = 'white', colour = 'white'))
+Figure3 
+
+
+```
+
+
+### 2 | BEN modelling
+#### 2.1 Pair tests for habitat types and years exploration
+#### 2.1.2 Richness ~ habitats Figure 5 + S2
+```{r, warning=FALSE}
+## Richness against habitats
+## Mean and sd stats for text
+richness_habitat_mean <- IOS_data %>%
+  group_by(Habitat) %>%
+  summarise(Mean_richness = mean(Richness))
+richness_habitat_sd <- IOS_data %>%
+  group_by(Habitat) %>%
+  summarise(sd = sd(Richness))
+## sub-habitat
+richness_subhabitat_mean <- IOS_data %>%
+  group_by(Broadscale_habitat) %>%
+  summarise(Mean_richness = mean(Richness))
+richness_subhabitat_sd <- IOS_data %>%
+  group_by(Broadscale_habitat) %>%
+  summarise(sd = sd(Richness))
+
+## Mann-Whitney U test - indices against habitat (non-parametric pair comparison)
+wxt_hab_rich<-wilcox.test(Richness ~ Habitat, data = IOS_data)
+## plot
+richness_hab_bp <- ggboxplot(IOS_data, x = "Habitat", y = "Richness", fill = "Habitat",  palette =  c("#077DAA","orange"), alpha = 0.7)+
+  ylim(2,11.8)+
+  xlab('Habitat')+
+  ylab('Richness (n.)')+
+  geom_signif(annotation="p< 0.0001", y_position=11.2, xmin=1, xmax=2, tip_length = 0,col='black',textsize=8)+
+  theme_classic(base_size = 30)+
+  theme(legend.position="none")
+richness_hab_bp 
+
+## Kruskal-Wallis H test between sub-feature habitat (Kruskal-Wallis test - Richness due to over dispersion)
+kruskal.test<-kruskal.test(Richness ~ Broadscale_habitat, data = IOS_data)
+## Pairwise comparison results
+pairwise_rich_subhabs <- pairwise.wilcox.test(IOS_data$Richness, IOS_data$Broadscale_habitat,  p.adjust.method = "bonferroni")
+z.score <- qnorm(pairwise_rich_subhabs$p.value/2)
+
+## assign significance labels for plot
+IOS_data$Cld='a'
+labels <- IOS_data[,c('Broadscale_habitat','Cld')]
+labels<- unique(labels)
+labels$Cld<-c('b','c','a','bc')
+pos <- IOS_data %>%
+  group_by(Broadscale_habitat) %>% 
+  summarise(mean=mean(Richness), sd=sd(Richness)) %>% 
+  arrange(desc(mean))
+lblpos<-merge(pos,labels)
+
+## plot
+## assign factor levels for habitat order
+IOS_data$Broadscale_habitat<-factor(IOS_data$Broadscale_habitat, levels = c('Circalittoral rock','Infralittoral rock','Subtidal seagrass','Subtidal sediments'))
+geom.text.size = 10
+
+richness_subhab_bp <- ggboxplot(IOS_data, x = "Broadscale_habitat", y = "Richness", fill = "Broadscale_habitat",  palette =  c('#003C67FF','#7AA6DCFF','#CD534CFF','#EFC000FF'), alpha = 0.7)+
+  labs(x = "Sub-habitat") +
+  scale_x_discrete(labels = label_wrap(10)) +
+  ylim(2,11.8)+
+  theme(axis.text = element_text(size = 18), axis.title = element_text(size = 18), legend.position="none")+ 
+  geom_text(data = lblpos, aes(label=Cld,x=Broadscale_habitat,y=11.5), size = 20/.pt)
+richness_subhab_bp 
+
+## merge for exporting
+richness_hab_plot <- grid.arrange(richness_hab_bp, richness_subhab_bp , ncol=2)
+
+#### results - 
+richness_habitat_mean
+richness_habitat_sd
+richness_subhabitat_mean
+richness_subhabitat_sd
+wxt_hab_rich
+pairwise_rich_subhabs
+z.score 
+
+```
+
+#### 2.1.2 Total MaxN ~ habitats Figure 5 + S2
+```{r, warning=FALSE}
+## stats for text
+maxn_habitat_sum <- IOS_data %>%
+  group_by(Habitat) %>%
+  summarise(Total_maxn = mean(Total_MaxN))
+maxn_habitat_sd <- IOS_data %>%
+  group_by(Habitat) %>%
+  summarise(sd = sd(Total_MaxN))
+
+## sub-habitat
+maxn_subhabitat_mean <- IOS_data %>%
+  group_by(Broadscale_habitat) %>%
+  summarise(Total_MaxN = mean(Total_MaxN))
+maxn_subhabitat_sd <- IOS_data %>%
+  group_by(Broadscale_habitat) %>%
+  summarise(sd = sd(Total_MaxN))
+
+## Mann-Whitney U test - indices against habitat (non-parametric pair comparison)
+wxt_hab_maxn<-wilcox.test(Total_MaxN ~ Habitat, data = IOS_data)
+
+## plot
+maxn_hab_bp <- ggboxplot(IOS_data, x = "Habitat", y = "Total_MaxN", fill = "Habitat",  palette =  c("#077DAA","orange"), alpha = 0.7)+
+  ylab("Relative abundance (n.)")+
+  ylim(0,200)+
+  xlab('Habitat')+
+  theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14))+ 
+  geom_signif(annotation="ns (p= 0.08)", y_position=190, xmin=1, xmax=2, tip_length = 0,col='black',textsize=8)+
+  theme_classic(base_size = 30) +
+  theme(legend.position="none")
+maxn_hab_bp 
+
+## Kruskal-Wallis H test between sub-feature habitat (Kruskal-Wallis test - Richness due to over dispersion)
+kruskal.test<-kruskal.test(Total_MaxN ~ Broadscale_habitat, data = IOS_data)
+## Print the pairwise comparison results
+pairwise_maxn_subhabs <- pairwise.wilcox.test(IOS_data$Total_MaxN, IOS_data$Broadscale_habitat,  p.adjust.method = "bonferroni")
+
+## assign significance labels for plot
+# assign significance labels for plot
+labels <- IOS_data[,c('Broadscale_habitat','Cld')]
+labels<- unique(labels)
+labels$Cld<-c('bc','bc','ac','abc')
+pos <- IOS_data %>%
+  group_by(Broadscale_habitat) %>% 
+  summarise(total=mean(Total_MaxN), sd=sd(Total_MaxN)) %>% 
+  arrange(desc(total))
+lblpos<-merge(pos,labels)
+
+maxn_subhab_bp <- ggboxplot(IOS_data, x = "Broadscale_habitat", y = "Total_MaxN", fill = "Broadscale_habitat",  palette =  c('#003C67FF','#7AA6DCFF','#CD534CFF','#EFC000FF'), alpha = 0.7)+
+  labs(x = "Sub-habitat") +
+  scale_x_discrete(labels = label_wrap(10)) +
+  ylab("Relative abundance")+
+  ylim(0,200)+
+  theme(axis.text = element_text(size = 18), axis.title = element_text(size = 18), legend.position="none")+ 
+  geom_text(data = lblpos, aes(label=Cld,x=Broadscale_habitat,y=190), size = 20/.pt)
+maxn_subhab_bp 
+
+## merge for exporting
+maxn_hab_plot <- grid.arrange(maxn_hab_bp, maxn_subhab_bp , ncol=2)
+
+#### results 
+maxn_habitat_sum
+maxn_habitat_sd
+maxn_subhabitat_mean
+maxn_subhabitat_sd
+wxt_hab_maxn
+pairwise_maxn_subhabs
+
+
+```
+
+#### 2.1.3 Total biomass ~ habitats Figure 5 + S2
+```{r}
+## stats for text
+biom_habitat_mean <- IOS_data %>%
+  group_by(Habitat) %>%
+  summarise(Mean_biom = mean(Total_biomass_kg))
+biom_habitat_sd <- IOS_data %>%
+  group_by(Habitat) %>%
+  summarise(sd = sd(Total_biomass_kg))
+
+## sub-habitat
+biom_subhabitat_mean <- IOS_data %>%
+  group_by(Broadscale_habitat) %>%
+  summarise(Mean_richness = mean(Total_biomass_kg))
+biom_subhabitat_sd <- IOS_data %>%
+  group_by(Broadscale_habitat) %>%
+  summarise(sd = sd(Total_biomass_kg))
+
+## Mann-Whitney U test - indices against habitat (non-parametric pair comparison)
+wxt_hab_biom<-wilcox.test(Total_biomass_kg ~ Habitat, data = IOS_data)
+
+## plot
+biom_hab_bp <- ggboxplot(IOS_data, x = "Habitat", y = "Total_biomass_kg", fill = "Habitat",  palette =  c("#077DAA","orange"), alpha = 0.7)+
+  ylab("Biomass (kg)")+
+  xlab('Habitat')+
+  theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14))+ 
+  geom_signif(annotation="p< 0.0001", y_position=190, xmin=1, xmax=2, tip_length = 0,col='black',textsize=8)+
+  theme_classic(base_size = 30)+
+  theme(legend.position="none")
+biom_hab_bp 
+
+## Kruskal-Wallis H test between sub-feature habitat (Kruskal-Wallis test - Richness due to over dispersion)
+kruskal.test<-kruskal.test(Total_biomass_kg ~ Broadscale_habitat, data = IOS_data)
+## Print the pairwise comparison results
+pairwise_biom_subhabs <- pairwise.wilcox.test(IOS_data$Total_biomass_kg, IOS_data$Broadscale_habitat,  p.adjust.method = "bonferroni")
+
+## assign significance labels for plot
+labels2 <- IOS_data[,c('Broadscale_habitat','Cld')]
+labels2<- unique(labels2)
+labels$Cld<-c('b','bc','a','c')
+pos <- IOS_data %>%
+  group_by(Broadscale_habitat) %>% 
+  summarise(mean=mean(Total_biomass_kg), sd=sd(Total_biomass_kg)) %>% 
+  arrange(desc(mean))
+lblpos<-merge(pos,labels)
+
+biom_subhab_bp <- ggboxplot(IOS_data, x = "Broadscale_habitat", y = "Total_biomass_kg", fill = "Broadscale_habitat",  palette =  c('#003C67FF','#7AA6DCFF','#CD534CFF','#EFC000FF'), alpha = 0.7)+
+  labs(x = "Sub-habitat") +
+  scale_x_discrete(labels = label_wrap(10)) +
+  ylab("Total biomass (kg)")+
+  #ylim(0,50)+
+  theme(axis.text = element_text(size = 18), axis.title = element_text(size = 18), legend.position="none")+ 
+  geom_text(data = lblpos, aes(label=Cld,x=Broadscale_habitat,y=200), size = 20/.pt)
+biom_subhab_bp 
+
+#### results -
+biom_habitat_mean
+biom_habitat_sd
+biom_subhabitat_mean
+biom_subhabitat_sd
+wxt_hab_biom
+pairwise_biom_subhabs
+
+```
+
+#### 2.1.4 All indices ~ Year Figure S2
+```{r}
+### check if year has a significant impact prior to further testing
+## Mann-Whitney U test - indices against year 
+wilcox.test(Richness ~ Year, data = IOS_data)
+wilcox.test(Total_MaxN ~ Year, data = IOS_data)
+wilcox.test(Total_biomass_kg ~ Year, data = IOS_data)
+wilcox.test(Total_biomass_kg ~ Year, data = IOS_data_SAC)
+
+## plot
+bxpyr <- ggboxplot(IOS_data, x = "Year", y = "Richness", alpha = 0.7)+ 
+  geom_signif(annotation="ns (p= 0.14)", y_position=11.1, xmin=1, xmax=2, tip_length = 0,col='black')+
+  theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14),legend.position="none")
+bxpyr2 <- ggboxplot(IOS_data, x = "Year", y = "Total_MaxN", alpha = 0.7)+ 
+  geom_signif(annotation="ns (p= 0.11)", y_position=405, xmin=1, xmax=2, tip_length = 0,col='black')+
+  ylab('Total MaxN')+
+  theme(axis.text = element_text(size = 12),  axis.title = element_text(size = 14),legend.position="none")
+bxpyr3 <- ggboxplot(IOS_data, x = "Year", y = "Total_biomass_kg", alpha = 0.7)+ 
+  scale_y_continuous(limits = c(0,210))+
+  geom_signif(annotation="ns (p= 0.07)", y_position=205, xmin=1, xmax=2, tip_length = 0,col='black')+
+  ylab('Biomass (kg) all')+
+  theme(axis.text = element_text(size = 12),  axis.title = element_text(size = 14),legend.position="none")
+bxpyr4 <- ggboxplot(IOS_data_SAC, x = "Year", y = "Total_biomass_kg", alpha = 0.7)+ 
+  ylab('Biomass (kg) SAC')+ 
+  geom_signif(annotation="ns (p= 0.18)", y_position=40, xmin=1, xmax=2, tip_length = 0,col='black')+
+  theme(axis.text = element_text(size = 12),  axis.title = element_text(size = 14),legend.position="none")
+
+
+```
+
+#### 3.1 GLMs - Richness ~ predictor variables
+```{r}
+## Richness
+# Create a spatial weights matrix
+Moran_data <- IOS_data
+coords <- as.matrix(Moran_data[, c("Lat", "Lon")]) # Coordinates
+nb <- knn2nb(knearneigh(coords, k = 4)) # 4-nearest neighbors
+listw <- nb2listw(nb, style = "W") # Spatial weights list
+# Compute the spatially lagged response variable
+IOS_data$W_y <- lag.listw(listw, IOS_data$Richness)
+W_y <- lag.listw(listw, IOS_data$Richness)
+
+## model parameters
+null_model <- glm(Richness ~ 1 , data = IOS_data,  family=poisson(link=log))
+model1 <- glm(Richness~Habitat + W_y + Year, data = IOS_data,  family=poisson(link=log))  
+model2 <- glm(Richness~Depth +  W_y + Year, data = IOS_data,  family=poisson(link=log))  
+model3 <- glm(Richness~Temp + W_y + Year, data = IOS_data,  family=poisson(link=log))    
+model4 <- glm(Richness~Relief_score + W_y + Year,family=poisson(link=log),data = IOS_data)
+model5 <- glm(Richness~Remoteness + W_y + Year, data = IOS_data,  family=poisson(link=log)) 
+model6 <- glm(Richness~Exposure + W_y + Year, data = IOS_data,  family=poisson(link=log))
+model7 <- glm(Richness~Depth*Habitat + W_y + Year, data = IOS_data,  family=poisson(link=log))   
+model8 <- glm(Richness~Temp*Habitat + W_y + Year, data = IOS_data,  family=poisson(link=log))    
+model9 <- glm(Richness~Relief_score*Habitat + W_y + Year,family=poisson(link=log),data = IOS_data)
+model10 <- glm(Richness~Remoteness*Habitat + W_y + Year, data = IOS_data,  family=poisson(link=log))  
+model11 <- glm(Richness~Exposure*Habitat + W_y + Year, data = IOS_data,  family=poisson(link=log)) 
+model12 <- glm(Richness~Relief_score + Depth + W_y + Year, data = IOS_data,  family=poisson(link=log))
+model13 <- glm(Richness~Relief_score + Remoteness + W_y + Year, data = IOS_data,  family=poisson(link=log))  
+model14 <- glm(Richness~Relief_score + Exposure + W_y + Year, data = IOS_data,  family=poisson(link=log)) 
+model15 <- glm(Richness~Remoteness + Exposure + W_y + Year, data = IOS_data,  family=poisson(link=log))  
+model16 <- glm(Richness~Depth + Remoteness + W_y + Year,family=poisson(link=log),data = IOS_data)
+
+## model selection table
+(msAICc <- model.sel(null_model, model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+df<-as.data.frame(msAICc,col_names = T)
+df$model <- row.names(df)
+df$model <- as.numeric(substring(df$model, 6))
+df$model<-as.character(df$model)
+df <- df %>% mutate(model = replace_na(model,'null_model'))
+
+## Extract information for specific models
+summary(model12)
+summary(model7)
+##check plots
+par(mfrow = c(2, 2))
+plot(model12)
+hist(model12$residuals)
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs <- left_join(model_outputs,pseudo_r_squared_df)
+
+## calulate LRT
+logLik_null <- logLik(null_model)
+logLik_full <- logLik(model12)
+
+# Likelihood ratio test statistic
+LRT_stat <- 2 * (as.numeric(logLik_full) - as.numeric(logLik_null))
+
+# Degrees of freedom (difference in the number of parameters)
+df <- attr(logLik_full, "df") - attr(logLik_null, "df")
+
+# p-value from the chi-squared distribution
+p_value <- pchisq(LRT_stat, df = df, lower.tail = FALSE)
+
+# Calculate Moran's I for each model
+moran_results_richness <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  residuals <- residuals(model)
+  moran_test <- moran.test(residuals, listw)
+    data.frame(
+    model = paste0(i-1),
+    moran_I_richness = moran_test$estimate[1],
+    sd_richness = moran_test$statistic,
+    p_value_richness = moran_test$p.value             
+  )
+}))
+
+## plot the top variables present in the optimal model
+## generate modeled values for depth and relief against richness
+## depth
+## for reef
+modelx <- glm(Richness~Depth*Habitat +W_y+ Year, data = IOS_data,  family=poisson(link=log))   
+pdat <- expand.grid(Depth = seq(1.6,44,0.5),  Habitat = "Reefs", W_y=mean(IOS_data$W_y),Year=as.character(names(sort(table(IOS_data$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+predframe <- data.frame (pdat, Total_MaxN = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Total_MaxN - 1.96*predframe$se
+predframe$upr <- predframe$Total_MaxN + 1.96*predframe$se
+## for sediment
+pdat2 <- expand.grid(Depth = seq(2.4,44,0.5),  Habitat = "Sediment",W_y=mean(IOS_data$W_y), Year=as.character(names(sort(table(IOS_data$Year), decreasing = TRUE)[1])))
+pred2 <- predict (modelx, newdata = pdat2, na.rm = T, type= "response", se.fit = TRUE)
+predframe2 <- data.frame (pdat2, Total_MaxN = pred2$fit, se = pred2$se.fit)
+predframe2$lwr <- predframe2$Total_MaxN - 1.96*predframe2$se
+predframe2$upr <- predframe2$Total_MaxN + 1.96*predframe2$se
+## bind
+predframe3 <- rbind(predframe,predframe2)
+
+depth_richness_gg <- ggplot(mapping = aes(x = Depth)) +
+  geom_line(aes(y = Total_MaxN, colour = Habitat), data = predframe3,linewidth=1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr, fill = Habitat), data = predframe3, alpha = 0.2)+
+  geom_rug(aes(colour = Habitat), data = IOS_data)+
+  scale_fill_manual(values=c("#077DAA","orange"))+
+  scale_color_manual(values = c("#077DAA", "orange")) +
+  labs(x = 'Depth (m)')+
+  labs(y = '')+
+  scale_x_continuous(limits = c(1.5,45), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(2,10), breaks=c(4,6,8,10), expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(legend.position="none", axis.title.y=element_blank())
+depth_richness_gg 
+
+##relief
+modely <- glm(Richness~Relief_score + Depth +W_y+ Year, data = IOS_data,  family=poisson(link=log))  
+pdat <- expand.grid(Relief_score = levels(factor(IOS_data$Relief_score)), Depth = mean(IOS_data$Depth), W_y=mean(IOS_data$W_y), Year=as.character(names(sort(table(IOS_data$Year), decreasing = TRUE)[1])))
+pred <- predict (modely, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# combine the predictions with the predictors, 
+predframe <- data.frame (pdat, Richness = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Richness - 1.96*predframe$se
+predframe$upr <- predframe$Richness + 1.96*predframe$se
+
+# Add the predicted means
+relief_richness_gg<-ggplot(predframe, aes(x=Relief_score, y=Richness)) + 
+  geom_pointrange(aes(ymin=lwr, ymax=upr),size=1,linewidth = 1) +
+  #scale_color_manual(values=c("#077DAA","orange"),guide="none")+
+  #geom_signif(annotation="***", y_position=6.5, xmin=1, xmax=2, tip_length = 0,col='black')+
+  ylab('')+
+  xlab('Relief score')+
+  scale_y_continuous(limits = c(3,7.5), breaks=c(4,5,6,7), expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(legend.position="none", axis.title.y=element_blank())
+relief_richness_gg
+
+richness_plots <-  grid.arrange(richness_hab_bp,depth_richness_gg, relief_richness_gg , ncol=3)
+
+
+```
+
+#### 3.2 GLMs - MaxN ~ predictor variables
+```{r}
+## total maxn
+# Create a spatial weights matrix
+Moran_data <- IOS_data
+coords <- as.matrix(Moran_data[, c("Lat", "Lon")]) # Coordinates
+nb <- knn2nb(knearneigh(coords, k = 4)) # 4-nearest neighbors
+listw <- nb2listw(nb, style = "W") # Spatial weights list
+# Compute the spatially lagged response variable
+IOS_data$W_y <- lag.listw(listw, IOS_data$Total_MaxN)
+W_y <- lag.listw(listw, IOS_data$Total_MaxN)
+
+## model parameters
+null_model <- glm.nb(Total_MaxN ~ 1 , data = IOS_data,link=log)
+model1 <- glm.nb(Total_MaxN~Habitat + W_y + Year, data = IOS_data, link=log)  
+model2 <- glm.nb(Total_MaxN~Depth +  W_y + Year, data = IOS_data, link=log)  
+model3 <- glm.nb(Total_MaxN~Temp + W_y + Year, data = IOS_data,  link=log)    
+model4 <- glm.nb(Total_MaxN~Relief_score + W_y + Year,data = IOS_data, link=log)
+model5 <- glm.nb(Total_MaxN~Remoteness + W_y + Year,data = IOS_data, link=log) 
+model6 <- glm.nb(Total_MaxN~Exposure + W_y + Year, data = IOS_data,  link=log)
+model7 <- glm.nb(Total_MaxN~Depth*Habitat + W_y + Year, data = IOS_data,  link=log)   
+model8 <- glm.nb(Total_MaxN~Temp*Habitat + W_y + Year, data = IOS_data,  link=log)    
+model9 <- glm.nb(Total_MaxN~Relief_score*Habitat + W_y + Year,link=log,data = IOS_data)
+model10 <- glm.nb(Total_MaxN~Remoteness*Habitat + W_y + Year, data = IOS_data,  link=log)  
+model11 <- glm.nb(Total_MaxN~Exposure*Habitat + W_y + Year, data = IOS_data,  link=log) 
+model12 <- glm.nb(Total_MaxN~Relief_score + Depth + W_y + Year, data = IOS_data,  link=log)    
+model13 <- glm.nb(Total_MaxN~Relief_score + Remoteness + W_y + Year, data = IOS_data,  link=log)  
+model14 <- glm.nb(Total_MaxN~Relief_score + Exposure + W_y + Year, data = IOS_data,  link=log) 
+model15 <- glm.nb(Total_MaxN~Remoteness + Exposure + W_y + Year, data = IOS_data,  link=log)  
+model16 <- glm.nb(Total_MaxN~Depth + Remoteness + W_y + Year,link=log,data = IOS_data)
+
+## model selection table
+(msAICc <- model.sel(null_model, model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+df<-as.data.frame(msAICc,col_names = T)
+df$model <- row.names(df)
+df$model <- as.numeric(substring(df$model, 6))
+df$model<-as.character(df$model)
+df <- df %>% mutate(model = replace_na(model,'null_model'))
+
+## Extract information for specific models
+summary(model7)
+## AIC
+AIC(model7)
+##check plots
+par(mfrow = c(2, 2))
+plot(model7)
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs <- left_join(model_outputs,pseudo_r_squared_df)
+
+# Calculate Moran's I for each model
+moran_results_maxn <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  residuals <- residuals(model)
+  moran_test <- moran.test(residuals, listw)
+    data.frame(
+    model = paste0(i-1),
+    moran_I_maxn = moran_test$estimate[1],        
+    sd_maxn = moran_test$statistic,        
+    p_value_maxn = moran_test$p.value              
+  )
+}))
+
+## create dataset to predict to
+## for reef
+modelxy <- glm.nb(Total_MaxN~Depth*Habitat +W_y +Year, data = IOS_data,  link=log)
+pdat <- expand.grid(Depth = seq(1.6,44,0.5),  Habitat = "Reefs",W_y=mean(IOS_data$W_y), Year=as.character(names(sort(table(IOS_data$Year), decreasing = TRUE)[1])))
+pred <- predict (modelxy, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+predframe <- data.frame (pdat, Total_MaxN = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Total_MaxN - 1.96*predframe$se
+predframe$upr <- predframe$Total_MaxN + 1.96*predframe$se
+## for sediment
+pdat2 <- expand.grid(Depth = seq(2.4,44,0.5),  Habitat = "Sediment", W_y=mean(IOS_data$W_y), Year=as.character(names(sort(table(IOS_data$Year), decreasing = TRUE)[1])))
+pred2 <- predict (modelxy, newdata = pdat2, na.rm = T, type= "response", se.fit = TRUE)
+predframe2 <- data.frame (pdat2, Total_MaxN = pred2$fit, se = pred2$se.fit)
+predframe2$lwr <- predframe2$Total_MaxN - 1.96*predframe2$se
+predframe2$upr <- predframe2$Total_MaxN + 1.96*predframe2$se
+## bind
+predframe3 <- rbind(predframe,predframe2)
+
+depthhab_totalmaxn_gg <- ggplot(mapping = aes(x = Depth)) +
+  geom_line(aes(y = Total_MaxN, colour = Habitat), data = predframe3,linewidth=1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr, fill = Habitat), data = predframe3, alpha = 0.2)+
+  geom_rug(aes(colour = Habitat), data = IOS_data)+
+  scale_fill_manual(values=c("#077DAA","orange"))+
+  scale_color_manual(values = c("#077DAA", "orange")) +
+  labs(x = 'Depth (m)')+
+  labs(y = '')+
+  scale_x_continuous(limits = c(1.5,45), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0,200), breaks=c(50,100,150, 200), expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(legend.position="none", axis.title.y=element_blank())
+depthhab_totalmaxn_gg
+
+maxn_plots <-  grid.arrange(maxn_hab_bp,depthhab_totalmaxn_gg,ncol=3)
+
+```
+
+#### 3.2 GLMs - Biomass ~ predictor variables
+```{r}
+## biomass
+# Create a spatial weights matrix
+Moran_data <- IOS_data_SAC
+coords <- as.matrix(Moran_data[, c("Lat", "Lon")]) # Coordinates
+nb <- knn2nb(knearneigh(coords, k = 4)) # 4-nearest neighbors
+listw <- nb2listw(nb, style = "W") # Spatial weights list
+# Compute the spatially lagged response variable
+IOS_data_SAC$W_y <- lag.listw(listw, IOS_data_SAC$Total_biomass_kg)
+W_y <- lag.listw(listw, IOS_data_SAC$Total_biomass_kg)
+
+## model parameters
+null_model <- glm(Total_biomass_kg ~ 1, data = IOS_data_SAC, family = Gamma(link =log))
+model1 <- glm(Total_biomass_kg~Habitat + W_y + Year, data = IOS_data_SAC, family = Gamma(link =log))  
+model2 <- glm(Total_biomass_kg~Depth +  W_y + Year, data = IOS_data_SAC, family = Gamma(link =log))  
+model3 <- glm(Total_biomass_kg~Temp + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))    
+model4 <- glm(Total_biomass_kg~Relief_score + W_y + Year,data = IOS_data_SAC, family = Gamma(link =log))
+model5 <- glm(Total_biomass_kg~Remoteness + W_y + Year,data = IOS_data_SAC, family = Gamma(link =log)) model6 <- glm(Total_biomass_kg~Exposure + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))
+model7 <- glm(Total_biomass_kg~Depth*Habitat + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))   
+model8 <- glm(Total_biomass_kg~Temp*Habitat + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))    
+model9 <- glm(Total_biomass_kg~Relief_score*Habitat + W_y + Year,family = Gamma(link =log),data = IOS_data_SAC)
+model10 <- glm(Total_biomass_kg~Remoteness*Habitat + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))  
+model11 <- glm(Total_biomass_kg~Exposure*Habitat + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log)) 
+model12 <- glm(Total_biomass_kg~Relief_score + Depth + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))    
+model13 <- glm(Total_biomass_kg~Relief_score + Remoteness + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))  
+model14 <- glm(Total_biomass_kg~Relief_score + Exposure + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log)) 
+model15 <- glm(Total_biomass_kg~Remoteness + Exposure + W_y + Year, data = IOS_data_SAC,  family = Gamma(link =log))  
+model16 <- glm(Total_biomass_kg~Depth + Remoteness + W_y + Year,family = Gamma(link =log),data = IOS_data_SAC)
+
+## model selection table
+(msAICc <- model.sel(null_model, model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+df<-as.data.frame(msAICc,col_names = T)
+df$model <- row.names(df)
+df$model <- as.numeric(substring(df$model, 6))
+df$model<-as.character(df$model)
+df <- df %>% mutate(model = replace_na(model,'null_model'))
+
+## Extract information for specific models
+summary(model2)
+## AIC
+AIC(model2)
+##check plots
+par(mfrow = c(2, 2))
+plot(model2)
+## Extract information for specific models
+summary(model16)
+## AIC
+AIC(model16)
+##check plots
+par(mfrow = c(2, 2))
+plot(model16)
+## Extract information for specific models
+summary(model7)
+## AIC
+AIC(model7)
+##check plots
+par(mfrow = c(2, 2))
+plot(model7)
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs <- left_join(model_outputs,pseudo_r_squared_df)
+
+# Calculate Moran's I for each model
+moran_results_biomass <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  residuals <- residuals(model)
+  moran_test <- moran.test(residuals, listw)
+    data.frame(
+    model = paste0(i-1),
+    moran_I_biomass = moran_test$estimate[1],   
+    sd_biomass = moran_test$statistic,
+    p_value_biomass = moran_test$p.value              
+  )
+}))
+
+## merge all 3 Moran's I data frames and export for Supp. Table 
+morans_outputs<-merge(moran_results_richness,moran_results_maxn) %>%
+              merge(moran_results_biomass)
+morans_outputs$model<-as.numeric(morans_outputs$model)
+
+
+## plot the top variables present in the optimal model
+## generate modeled values for depth and relief against richness
+##depth
+## create dataset to predict to
+## for reef
+modelx <- glm(Total_biomass_kg~Depth + W_y +Year, data = IOS_data, family = Gamma(link =log))  
+pdat <- expand.grid(Depth = seq(1.6,44,0.5), W_y=mean(IOS_data_SAC$W_y),Year=as.character(names(sort(table(IOS_data_SAC$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+predframe <- data.frame (pdat, Total_biomass_kg = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Total_biomass_kg - 1.96*predframe$se
+predframe$upr <- predframe$Total_biomass_kg + 1.96*predframe$se
+
+depth_biomass_gg <- ggplot(mapping = aes(x = Depth)) +
+  geom_line(aes(y = Total_biomass_kg), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = IOS_data_SAC)+
+  labs(x = 'Depth (m)')+
+  labs(y = '')+
+  scale_x_continuous(limits = c(1.5,45), expand = c(0, 0)) +
+  #scale_y_continuous(limits = c(3,12), breaks=c(3,5, 7, 9,11), expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+depth_biomass_gg
+
+
+## Remoteness
+modely <-  glm(Total_biomass_kg~Remoteness+Depth+ W_y+Year,family = Gamma(link =log),data = IOS_data_SAC)
+pdat <- expand.grid(Remoteness= seq(32.1,7048.7,10),Depth=mean(IOS_data_SAC$Depth), W_y=mean(IOS_data_SAC$W_y),Year=as.character(names(sort(table(IOS_data$Year), decreasing = TRUE)[1])))
+pred <- predict (modely, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+# combine the predictions with the predictors, 
+predframe <- data.frame (pdat, Total_biomass_kg = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Total_biomass_kg - 1.96*predframe$se
+predframe$upr <- predframe$Total_biomass_kg + 1.96*predframe$se
+
+# Add the predicted means
+remote_biomasss_gg<-ggplot(predframe, aes(x=Remoteness, y=Total_biomass_kg)) + 
+  geom_line(aes(y = Total_biomass_kg), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = IOS_data_SAC,sides="b")+
+  ylab('')+
+  xlab('Remoteness (m)')+
+  scale_x_continuous(limits = c(30,7050), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(2,10), breaks=c(4,6, 8,10),expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(legend.position="none", axis.title.y=element_blank())
+remote_biomasss_gg
+
+biomass_plots <-  grid.arrange(biom_hab_bp,depth_biomass_gg, remote_biomasss_gg , ncol=3)
+
+
+```
+
+## combine all GLM plots into matrix figure of model outputs of interest for Figure 5
+```{r}
+## combine all GLM plots into matrix figure of model outputs of interest
+all_model_plots <-  grid.arrange(richness_plots,maxn_plots, biomass_plots , nrow=3)
+
+```
+
+
+#### 3.3 Species lengths modelling
+### 3.3.1 Small spotted catshark 
+```{r}
+## small spotted catshark
+indicator_spp <- species_lengths
+ssc <- subset(indicator_spp,indicator_spp$Species == 'Small_spotted_catshark')
+ssc <- ssc %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+ssc <- merge(ssc,envo_variables_short, by=c('GRTS_ID'))
+hist(ssc$Length)
+mean_val<-mean(ssc$Length)
+var(ssc$Length)
+std.error(ssc$Length)    
+
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = ssc,  family="gaussian")
+model1 <- glm(Length~Habitat + Year, data = ssc,  family="gaussian") 
+model2 <- glm(Length~Depth  + Year, data = ssc,  family="gaussian")  
+model3 <- glm(Length~Temp  + Year, data = ssc,  family="gaussian")    
+model4 <- glm(Length~Relief_score  + Year,data = ssc, family="gaussian")
+model5 <- glm(Length~Remoteness  + Year, data = ssc,  family="gaussian") 
+model6 <- glm(Length~Exposure  + Year, data = ssc,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat  + Year, data = ssc,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat  + Year, data = ssc,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat  + Year,data = ssc ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat  + Year, data = ssc,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat  + Year, data = ssc,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth  + Year, data = ssc,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness  + Year, data = ssc,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure  + Year, data = ssc,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure  + Year, data = ssc,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness  + Year,data = ssc ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+ssc_df<-as.data.frame(msAICc,col_names = T)
+ssc_df$model <- row.names(ssc_df)
+ssc_df$model <- as.numeric(substring(ssc_df$model, 6))
+ssc_df$model<-as.character(ssc_df$model)
+ssc_df$Species <- 'Small spotted catshark'
+ssc_df <- ssc_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(ssc_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs_ssc <- left_join(model_outputs,pseudo_r_squared_df)
+
+## create dataset to predict to
+modely <- glm(Length~Exposure + Year, data = ssc,  family="gaussian")
+pdat <- expand.grid(Exposure= seq(6.4,175.6,1), Year=as.character(names(sort(table(ssc$Year), decreasing = TRUE)[1])))
+pred <- predict (modely, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+ssc_p<-ggplot(predframe, aes(x=Exposure, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  coord_cartesian(xlim = c(min(predframe$Exposure), max(predframe$Exposure)), clip = "off")+
+  geom_rug(aes(), data = ssc,sides="b")+
+  ylab('')+
+  xlab('Exposure (°)')+
+  scale_x_continuous(limits = c(6.4,180), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(550,700),expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+  
+ssc_p
+
+## for reef
+modely <- glm(Length~Exposure*Habitat , data = ssc,  family="gaussian")
+pdat <- expand.grid(Exposure= seq(6.4,168.9,1),  Habitat = "Reefs")
+pred <- predict (modely, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+## for sediment
+pdat2 <- expand.grid(Exposure = seq(13.4,175.6,1),  Habitat = "Sediment")
+pred2 <- predict (modely, newdata = pdat2, na.rm = T, type= "response", se.fit = TRUE)
+predframe2 <- data.frame (pdat2, Length = pred2$fit, se = pred2$se.fit)
+predframe2$lwr <- predframe2$Length - 1.96*predframe2$se
+predframe2$upr <- predframe2$Length + 1.96*predframe2$se
+## bind
+predframe3 <- rbind(predframe,predframe2)
+
+ssc_p2 <- ggplot(mapping = aes(x = Exposure)) +
+  geom_line(aes(y = Length, colour = Habitat), data = predframe3,linewidth=1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr, fill = Habitat), data = predframe3, alpha = 0.2)+
+  geom_rug(aes(colour = Habitat), data = ssc)+
+  scale_fill_manual(values=c("#077DAA","orange"))+
+  scale_color_manual(values = c("#077DAA", "orange")) +
+  coord_cartesian(xlim = c(min(predframe$Exposure), max(predframe$Exposure)), clip = "off")+
+  labs(x = 'Exposure (°)')+
+  labs(y = '')+
+  scale_x_continuous(limits = c(0,176), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(500,750), expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(legend.position="none", axis.title.y=element_blank())
+  
+ssc_p2
+
+```
+
+
+### 3.3.2 Nursehound
+```{r}
+
+## Nursehound
+nh <- subset(indicator_spp,indicator_spp$Species == 'Nursehound')
+nh <- nh %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+nh <- merge(nh,envo_variables_short, by='GRTS_ID')
+ 
+hist(nh$Length)
+mean(nh$Length)
+var(nh$Length)
+std.error(nh$Length) 
+
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = nh,  family="gaussian")
+model1 <- glm(Length~Habitat + Year, data = nh,  family="gaussian") 
+model2 <- glm(Length~Depth  + Year, data = nh,  family="gaussian")  
+model3 <- glm(Length~Temp  + Year, data = nh,  family="gaussian")    
+model4 <- glm(Length~Relief_score  + Year,data = nh, family="gaussian")
+model5 <- glm(Length~Remoteness  + Year, data = nh,  family="gaussian") 
+model6 <- glm(Length~Exposure  + Year, data = nh,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat  + Year, data = nh,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat  + Year, data = nh,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat  + Year,data = nh ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat  + Year, data = nh,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat  + Year, data = nh,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth  + Year, data = nh,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness  + Year, data = nh,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure  + Year, data = nh,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure  + Year, data = nh,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness  + Year,data = nh ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+nh_df<-as.data.frame(msAICc,col_names = T)
+nh_df$model <- row.names(nh_df)
+nh_df$model <- as.numeric(substring(nh_df$model, 6))
+nh_df$model<-as.character(nh_df$model)
+nh_df$Species <- 'Nursehound'
+nh_df <- nh_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(nh_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs_nh <- left_join(model_outputs,pseudo_r_squared_df)
+
+```
+
+
+### 3.3.3 Pollack 
+```{r}
+
+## Pollack
+pp <- subset(indicator_spp,indicator_spp$Species == 'Pollack')
+pp <- pp %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+pp <- merge(pp,envo_variables_short, by=c('GRTS_ID'))
+
+hist(pp$Length)
+mean_val_pp<-mean(pp$Length)
+var(pp$Length)
+std.error(pp$Length)
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = pp,  family="gaussian")
+model1 <- glm(Length~Habitat + Year, data = pp,  family="gaussian") 
+model2 <- glm(Length~Depth  + Year, data = pp,  family="gaussian")  
+model3 <- glm(Length~Temp  + Year, data = pp,  family="gaussian")    
+model4 <- glm(Length~Relief_score  + Year,data = pp, family="gaussian")
+model5 <- glm(Length~Remoteness  + Year, data = pp,  family="gaussian") 
+model6 <- glm(Length~Exposure  + Year, data = pp,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat  + Year, data = pp,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat  + Year, data = pp,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat  + Year,data = pp ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat  + Year, data = pp,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat  + Year, data = pp,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth  + Year, data = pp,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness  + Year, data = pp,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure  + Year, data = pp,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure  + Year, data = pp,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness  + Year,data = pp ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+pp_df<-as.data.frame(msAICc,col_names = T)
+pp_df$model <- row.names(pp_df)
+pp_df$model <- as.numeric(substring(pp_df$model, 6))
+pp_df$model<-as.character(pp_df$model)
+pp_df$Species <- 'Pollock'
+pp_df <- pp_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(pp_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+## merge
+model_outputs_pp <- left_join(model_outputs,pseudo_r_squared_df)
+
+## create dataset to predict to
+modelx <- glm(Length~Depth + Remoteness  + Year,data = pp ,family="gaussian")
+pdat <- expand.grid(Depth= seq(2.4,44,1),   Remoteness = mean(pp$Remoteness), Year=as.character(names(sort(table(pp$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+pp_p<-ggplot(predframe, aes(x=Depth, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = pp,sides="b")+
+  ylab('')+
+  xlab('Depth (m)')+
+  scale_x_continuous(limits = c(2.4,45), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(100,600),expand = c(0, 0)) +  
+  coord_cartesian(xlim = c(min(predframe$Depth), max(predframe$Depth)), clip = "off")+
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+pp_p
+
+##remoteness
+modely <-  glm(Length~Depth + Remoteness  + Year,data = pp ,family="gaussian") 
+pdat <- expand.grid(Remoteness= seq(34,13200.3,1),   Depth = mean(pp$Depth), Year=as.character(names(sort(table(pp$Year), decreasing = TRUE)[1])))
+pred <- predict (modely, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+pp_p2<-ggplot(predframe, aes(x=Remoteness, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = pp,sides="b")+
+  ylab('Length (cm)')+
+  xlab('Remoteness (m)')+
+  scale_x_continuous(limits = c(0,13200), breaks = seq(0,13200,4000),expand = c(0, 0)) +
+  scale_y_continuous(limits = c(250,600), expand = c(0, 0)) +
+  coord_cartesian(xlim = c(min(predframe$Remoteness), max(predframe$Remoteness)), clip = "off")+
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+
+pp_p2
+
+
+
+```
+
+
+
+### 3.3.4 Ballan wrasse
+```{r}
+
+## ballan wrasse
+bw <- subset(indicator_spp,indicator_spp$Species == 'Ballan_wrasse')
+bw <- bw %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+bw <- merge(bw,envo_variables_short, by=c('GRTS_ID'))
+
+hist(bw$Length)
+mean(bw$Length)
+var(bw$Length)
+std.error(bw$Length)
+
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = bw,  family="gaussian")
+model1 <- glm(Length~Habitat + Year, data = bw,  family="gaussian") 
+model2 <- glm(Length~Depth + Year, data = bw,  family="gaussian")  
+model3 <- glm(Length~Temp + Year, data = bw,  family="gaussian")    
+model4 <- glm(Length~Relief_score + Year,data = bw, family="gaussian")
+model5 <- glm(Length~Remoteness + Year, data = bw,  family="gaussian") 
+model6 <- glm(Length~Exposure + Year, data = bw,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat + Year, data = bw,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat + Year, data = bw,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat + Year,data = bw ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat + Year, data = bw,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat + Year, data = bw,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth + Year, data = bw,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness + Year, data = bw,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure + Year, data = bw,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure + Year, data = bw,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness + Year,data = bw ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+bw_df<-as.data.frame(msAICc,col_names = T)
+bw_df$model <- row.names(bw_df)
+bw_df$model <- as.numeric(substring(bw_df$model, 6))
+bw_df$model<-as.character(bw_df$model)
+bw_df$Species <- 'Ballan wrasse'
+bw_df <- bw_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(bw_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs_bw <- left_join(model_outputs,pseudo_r_squared_df)
+
+## create dataset to predict to
+## Remoteness
+modelx <- glm(Length~Remoteness + Exposure + Year, data = bw,  family="gaussian") 
+pdat <- expand.grid(Remoteness= seq(31.1,13185.7,1),   Exposure = mean(bw$Exposure), Year=as.character(names(sort(table(bw$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+bw_p<-ggplot(predframe, aes(x=Remoteness, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = bw,sides="b")+
+  ylab('')+
+  xlab('Remoteness (m)')+
+  scale_x_continuous(limits = c(0,13200), breaks = seq(0,13200,4000),expand = c(0, 0)) +
+  scale_y_continuous(limits = c(250,450),expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+  
+bw_p
+
+## create dataset to predict to
+modely <- glm(Length~Remoteness + Exposure + Year, data = bw,  family="gaussian") 
+pdat <- expand.grid(Exposure= seq(0.8,173.6,1),   Remoteness = mean(bw$Remoteness), Year=as.character(names(sort(table(bw$Year), decreasing = TRUE)[1])))
+pred <- predict (modely, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+bw_p2<-ggplot(predframe, aes(x=Exposure, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = bw,sides="b")+
+  ylab('')+
+  xlab('Exposure (°)')+
+  scale_x_continuous(limits = c(0,180), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(220,450),expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+
+
+bw_p2
+
+
+```
+
+### 3.3.5 Cuckoo wrasse
+```{r}
+
+## Cuckoo wrasse
+cw <- subset(indicator_spp,indicator_spp$Species == 'Cuckoo_wrasse')
+cw <- cw %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+cw <- merge(cw,envo_variables_short, by=c('GRTS_ID'))
+
+hist(cw$Length)
+mean(cw$Length)
+var(cw$Length)
+std.error(cw$Length)
+
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = cw,  family="gaussian")
+model1 <- glm(Length~Habitat + Year, data = cw,  family="gaussian") 
+model2 <- glm(Length~Depth + Year, data = cw,  family="gaussian")  
+model3 <- glm(Length~Temp + Year, data = cw,  family="gaussian")    
+model4 <- glm(Length~Relief_score + Year,data = cw, family="gaussian")
+model5 <- glm(Length~Remoteness + Year, data = cw,  family="gaussian") 
+model6 <- glm(Length~Exposure + Year, data = cw,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat + Year, data = cw,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat + Year, data = cw,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat + Year,data = cw ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat + Year, data = cw,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat + Year, data = cw,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth + Year, data = cw,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness + Year, data = cw,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure + Year, data = cw,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure + Year, data = cw,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness + Year,data = cw ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+cw_df<-as.data.frame(msAICc,col_names = T)
+cw_df$model <- row.names(cw_df)
+cw_df$model <- as.numeric(substring(cw_df$model, 6))
+cw_df$model<-as.character(cw_df$model)
+cw_df$Species <- 'Cuckcoo wrasse'
+cw_df <- cw_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(cw_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs_cw <- left_join(model_outputs,pseudo_r_squared_df)
+
+## plot the top variables present in the optimal model
+## generate modeled values for depth and relief against richness
+## depth
+## for reef
+modelx <- glm(Length~Depth*Habitat + Year, data = cw,  family="gaussian")   
+pdat <- expand.grid(Depth = seq(18.2,44.2,1),  Habitat = "Reefs", Year=as.character(names(sort(table(cw$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+## for sediment
+pdat2 <- expand.grid(Depth = seq(4.4,44,1),  Habitat = "Sediment", Year=as.character(names(sort(table(cw$Year), decreasing = TRUE)[1])))
+pred2 <- predict (modelx, newdata = pdat2, na.rm = T, type= "response", se.fit = TRUE)
+predframe2 <- data.frame (pdat2, Length = pred2$fit, se = pred2$se.fit)
+predframe2$lwr <- predframe2$Length - 1.96*predframe2$se
+predframe2$upr <- predframe2$Length + 1.96*predframe2$se
+## bind
+predframe3 <- rbind(predframe,predframe2)
+
+cw_p <- ggplot(mapping = aes(x = Depth)) +
+  geom_line(aes(y = Length), data = predframe,linewidth=1, colour = "#077DAA") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2, fill = "#077DAA")+
+  geom_rug(aes(), data = cw)+
+  labs(x = 'Depth (m)')+
+  labs(y = '')+
+  scale_x_continuous(limits = c(18,45), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(200,300), expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  #theme(legend.position = "inside", legend.position.inside = c(.15, .75),legend.text=element_text(size=18))
+  theme(legend.position = "none",)+
+  theme(axis.title.y=element_blank())
+cw_p 
+
+
+```
+
+
+### 3.3.1 Brown crab
+```{r}
+
+## Brown crab
+ec <- subset(indicator_spp,indicator_spp$Species == 'Edible_crab')
+ec <- ec %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+ec <- merge(ec,envo_variables_short, by=c('GRTS_ID'))
+
+hist(ec$Length)
+mean(ec$Length)
+var(ec$Length)
+std.error(ec$Length)
+
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = ec,  family="gaussian")
+model1 <- glm(Length~Habitat +Year, data = ec,  family="gaussian") 
+model2 <- glm(Length~Depth +Year, data = ec,  family="gaussian")  
+model3 <- glm(Length~Temp +Year, data = ec,  family="gaussian")    
+model4 <- glm(Length~Relief_score +Year,data = ec, family="gaussian")
+model5 <- glm(Length~Remoteness +Year, data = ec,  family="gaussian") 
+model6 <- glm(Length~Exposure +Year, data = ec,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat +Year, data = ec,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat +Year, data = ec,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat +Year,data = ec ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat +Year, data = ec,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat +Year, data = ec,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth +Year, data = ec,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness +Year, data = ec,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure +Year, data = ec,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure +Year, data = ec,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness +Year,data = ec ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+ec_df<-as.data.frame(msAICc,col_names = T)
+ec_df$model <- row.names(ec_df)
+ec_df$model <- as.numeric(substring(ec_df$model, 6))
+ec_df$model<-as.character(ec_df$model)
+ec_df$Species <- 'Edible crab'
+ec_df <- ec_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(ec_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs_ec <- left_join(model_outputs,pseudo_r_squared_df)
+
+## create dataset to predict to
+##  Temp
+modelx <- glm(Length~Temp +Year, data = ec,  family="gaussian")
+pdat <- expand.grid(Temp = seq(11.0,17,0.1), Year=as.character(names(sort(table(ec$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+ec_p<-ggplot(predframe, aes(x=Temp, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = ec,sides="b")+
+  ylab('')+
+  xlab('Temp (°c)')+
+  scale_x_continuous(limits = c(10.9,17), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(100,175),expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+  
+ec_p
+
+
+
+```
+
+
+### 3.3.1 Spiny lobster
+```{r}
+
+## Common_spiny_lobster
+sl <- subset(indicator_spp,indicator_spp$Species == 'Common_spiny_lobster')
+mean(sl$Length)
+var(sl$Length)
+sd(sl$Length)
+max(sl$Length)
+
+sl_lgnth <- sl[order(sl$Length),]
+
+sl <- sl %>%
+  group_by(GRTS_ID) %>%
+  summarise(Length = mean(Length))
+sl <- merge(sl,envo_variables_short, by=c('GRTS_ID'))
+
+hist(sl$Length)
+mean(sl$Length)
+var(sl$Length)
+sd(sl$Length)
+min(sl$Length)
+
+## model parameters
+# Fit the null model (intercept only) using fitme
+null_model <- glm(Length ~ 1, data = sl,  family="gaussian")
+model1 <- glm(Length~Habitat + Year, data = sl,  family="gaussian") 
+model2 <- glm(Length~Depth + Year, data = sl,  family="gaussian")  
+model3 <- glm(Length~Temp + Year, data = sl,  family="gaussian")    
+model4 <- glm(Length~Relief_score + Year,data = sl, family="gaussian")
+model5 <- glm(Length~Remoteness + Year, data = sl,  family="gaussian") 
+model6 <- glm(Length~Exposure + Year, data = sl,  family="gaussian")
+model7 <- glm(Length~Depth*Habitat + Year, data = sl,  family="gaussian")   
+model8 <- glm(Length~Temp*Habitat + Year, data = sl,  family="gaussian")    
+model9 <- glm(Length~Relief_score*Habitat + Year,data = sl ,family="gaussian")
+model10 <- glm(Length~Remoteness*Habitat + Year, data = sl,  family="gaussian")  
+model11 <- glm(Length~Exposure*Habitat + Year, data = sl,  family="gaussian") 
+model12 <- glm(Length~Relief_score + Depth + Year, data = sl,  family="gaussian")    
+model13 <- glm(Length~Relief_score + Remoteness + Year, data = sl,  family="gaussian")  
+model14 <- glm(Length~Relief_score + Exposure + Year, data = sl,  family="gaussian") 
+model15 <- glm(Length~Remoteness + Exposure + Year, data = sl,  family="gaussian")  
+model16 <- glm(Length~Depth + Remoteness + Year,data = sl ,family="gaussian")
+
+## model selection table
+(msAICc <- model.sel(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16))
+sl_df<-as.data.frame(msAICc,col_names = T)
+sl_df$model <- row.names(sl_df)
+sl_df$model <- as.numeric(substring(sl_df$model, 6))
+sl_df$model<-as.character(sl_df$model)
+sl_df$Species <- 'Common spiny lobster'
+sl_df <- sl_df %>% mutate(model = replace_na(model,'null_model'))
+
+## extract the Coefficients and Standard Errors
+model_list<-list(null_model,model1,model2,model3,model4,model5,model6,model7,model8,model9,model10,model11,model12,model13,model14,model15,model16) 
+model_summaries <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  coef_data <- as.data.frame(coefTable(model_list[[i]]))
+  coef_data <- coef_data[rownames(coef_data) == "(Intercept)", ]
+  coef_data$model <- paste0(i-1)
+  coef_data
+}))
+model_summaries <- within(model_summaries, {
+  CI_lower <- Estimate - 1.96 * `Std. Error`
+  CI_upper <- Estimate + 1.96 * `Std. Error`
+})
+
+model_summaries[1,4]<- 'null_model'
+model_summaries<-model_summaries[,c(4,5,6)]
+
+## merge
+model_outputs <- left_join(sl_df,model_summaries)
+  
+# Calculate the pseudo R-squared 
+pseudo_r_squared_df <- do.call(rbind, lapply(seq_along(model_list), function(i) {
+  model <- model_list[[i]]
+  pseudo_r_squared <- (model$null.deviance - model$deviance) / model$null.deviance
+  data.frame(
+    model = paste0(i-1),
+    pseudo_r_squared = pseudo_r_squared
+  )
+}))
+
+# Reset row names for clarity
+rownames(pseudo_r_squared_df) <- NULL
+pseudo_r_squared_df[1,1]<- 'null_model'
+
+## merge
+model_outputs_sp <- left_join(model_outputs,pseudo_r_squared_df)
+
+## create dataset to predict to
+## Remoteness
+modelx <- glm(Length~Depth , data = sl,  family="gaussian")
+pdat <- expand.grid(Depth= seq(19,40,0.5), Year=as.character(names(sort(table(sl$Year), decreasing = TRUE)[1])))
+pred <- predict (modelx, newdata = pdat, na.rm = T, type= "response", se.fit = TRUE)
+
+# Step 3: combine the predictions with the predictors, 
+#         into a final dataframe (predframe)
+predframe <- data.frame (pdat, Length = pred$fit, se = pred$se.fit)
+predframe$lwr <- predframe$Length - 1.96*predframe$se
+predframe$upr <- predframe$Length + 1.96*predframe$se
+
+# Add the predicted means
+sl_p<-ggplot(predframe, aes(x=Depth, y=Length)) + 
+  geom_line(aes(y = Length), data = predframe,linewidth=1,col='darkblue') +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), data = predframe, alpha = 0.2)+
+  geom_rug(aes(), data = sl,sides="b")+
+  ylab('Length (cm)')+
+  xlab('Depth (m)')+
+  scale_x_continuous(limits = c(19,40), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(100,160),expand = c(0, 0)) +
+  theme_classic(base_size = 30)+
+  theme(axis.title.y=element_blank())
+
+sl_p
+
+```
+
+#### 4.1 Export lengths results for Figure 6
+```{r}
+
+## merge and export all model results for supp. table 
+length_results<- rbind(model_outputs_ssc,model_outputs_nh,model_outputs_pp,model_outputs_bw,model_outputs_cw,model_outputs_ec,model_outputs_sp)
+
+species_lengths_models <-  grid.arrange(ssc_p,pp_p,pp_p2,bw_p,bw_p2,cw_p,ec_p,sl_p,ncol =3)
+
+
+```
+

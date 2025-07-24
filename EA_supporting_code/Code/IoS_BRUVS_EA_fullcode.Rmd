@@ -40,6 +40,7 @@ library(MuMIn)
 library(car)
 library(emmeans)
 
+
 ```
 
 ### 0 | Read in ecological and metadata
@@ -63,78 +64,91 @@ envo_variables <- read.csv('../Data/IoS_BEN_metadata.csv')
 #### 1.1 Read in and calculate ecological indicies from BRUV survey data
 ```{r}
 
-## calculate species richness
+# Calculate species richness per site
 deployment_richness <- reef_fish %>%
   group_by(GRTS_ID) %>%
-  summarise(Richness = length(Species))
-## calculate mean maxN
+  summarise(Richness = n_distinct(Species))  # more accurate than length()
+
+# Calculate mean MaxN per site
 deployment_maxn <- reef_fish %>%
   group_by(GRTS_ID) %>%
-  summarise(Mean_MaxN = mean(MaxN))
-## merge
-mean_values1 <- left_join(deployment_maxn,deployment_richness, by='GRTS_ID')
+  summarise(Mean_MaxN = mean(MaxN, na.rm = TRUE))
 
-## calculate total maxN
+# Merge richness and mean MaxN
+mean_values1 <- left_join(deployment_maxn, deployment_richness, by = "GRTS_ID")
+
+# Calculate total MaxN per site
 deployment_abundance <- reef_fish %>%
   group_by(GRTS_ID) %>%
-  summarise(Total_MaxN = sum(MaxN))
-deployment_abundance$Total_MaxN <-deployment_abundance$Total_MaxN
-## merge
-mean_values2 <- left_join(mean_values1,deployment_abundance, by='GRTS_ID')
+  summarise(Total_MaxN = sum(MaxN, na.rm = TRUE))
 
-## calculate shannons divserity 
-div <- species_obs[c('GRTS_ID','Species','MaxN')] 
-shannon_diversity <- div %>%
+# Merge total MaxN
+mean_values2 <- left_join(mean_values1, deployment_abundance, by = "GRTS_ID")
+
+# Calculate Shannon's diversity per site
+shannon_diversity <- species_obs %>%
   group_by(GRTS_ID) %>%
-  summarise(shannon_index = diversity(MaxN))
-shannon_diversity_site <- shannon_diversity[c('GRTS_ID','shannon_index')]
-## merge
-mean_values3 <-  left_join(mean_values2,shannon_diversity_site, by='GRTS_ID')
+  summarise(shannon_index = diversity(MaxN, index = "shannon")) 
 
-## calculate mean length per sample 
-## subset to just benthic associated species 
-benthic_list <- as.list(unique(reef_fish$Species))
-species_lengths <- subset(species_lengths,species_lengths$Species %in% benthic_list)
-## calculate mean length
-deployment_length <- species_lengths %>%
+# Merge diversity data
+mean_values3 <- left_join(mean_values2, shannon_diversity, by = "GRTS_ID")
+
+# --- Mean Length for Benthic-Associated Species ---
+# Subset species lengths to those observed in demersal (reef_fish) 
+benthic_species <- unique(reef_fish$Species)
+species_lengths_filtered <- species_lengths %>%
+  filter(Species %in% benthic_species)
+
+# Calculate mean length per site (convert mm to cm)
+deployment_length <- species_lengths_filtered %>%
   group_by(GRTS_ID) %>%
-  summarise(Mean_length = mean(Length))
-## convert to cm
-deployment_length$Mean_length <- deployment_length$Mean_length/10
-## merge
-mean_values4 <-  left_join(mean_values3,deployment_length, by='GRTS_ID')
+  summarise(Mean_length = mean(Length, na.rm = TRUE) / 10)
 
-## calculate total biomass per sample 
-site_biomass <- site_biomass[c('GRTS_ID','Total_biomass_kg')]
-mean_values5 <- left_join(mean_values4,site_biomass, by='GRTS_ID')
+# Merge mean length
+mean_values4 <- left_join(mean_values3, deployment_length, by = "GRTS_ID")
 
-## join environmental variables of interest 
-## remove duplicate rows
-envo_variables <- envo_variables[,2:27]
-envo_variables <- distinct(envo_variables)
+# --- Add Total Biomass ---
+site_biomass_clean <- site_biomass %>%
+  select(GRTS_ID, Total_biomass_kg)
 
-## subset columns of interest
-envo_variables_short <- envo_variables[,c('GRTS_ID','Date','Broadscale_habitat','Habitat','Mixed','Relief_score','Lat','Lon','TimeIN','Depth','Temp','Rug_range','Remoteness','Exposure','Slope_mean','MCZ','SAC','Height_of_tide')]
-## Re-define habitat and relief as a categorical variables
-envo_variables_short$Habitat <- as.factor(envo_variables_short$Habitat)      
-envo_variables_short$Broadscale_habitat <- as.factor(envo_variables_short$Broadscale_habitat)      
-envo_variables_short$Relief_score <- as.factor(envo_variables_short$Relief_score)      
-## merge
-IOS_data <- merge(mean_values5,envo_variables_short, by='GRTS_ID')
+mean_values5 <- left_join(mean_values4, site_biomass_clean, by = "GRTS_ID")
 
-## assign a year and month
-IOS_data$Year <- substr(IOS_data$Date,7,10)
-envo_variables_short$Year <- substr(envo_variables_short$Date,7,10)
-IOS_data$Month <- substr(IOS_data$Date,4,5)
+# --- Join Environmental Variables ---
+# Drop unnecessary columns and duplicates
+envo_variables_clean <- envo_variables %>%
+  select(2:27) %>%
+  distinct()
 
-## remove SVnStns for later analysis
-IOS_data_SAC <- subset(IOS_data,IOS_data$SAC > 0)
+# Subset columns of interest
+envo_variables_short <- envo_variables_clean %>%
+  select(GRTS_ID, Date, Broadscale_habitat, Habitat, Mixed, Relief_score,
+         Lat, Lon, TimeIN, Depth, Temp, Rug_range, Remoteness,
+         Exposure, Slope_mean, MCZ, SAC, Height_of_tide) %>%
+  mutate(Habitat = factor(Habitat),
+    Broadscale_habitat = factor(Broadscale_habitat),
+    Relief_score = factor(Relief_score))
+
+# Merge environmental variables with response data
+IOS_data <- left_join(mean_values5, envo_variables_short, by = "GRTS_ID")
+
+# Assign Year and Month
+IOS_data <- IOS_data %>%
+  mutate(Year = substr(Date, 7, 10),Month = substr(Date, 4, 5))
+
+# Optional: also mutate `envo_variables_short` if needed elsewhere
+# envo_variables_short <- envo_variables_short %>%
+#   mutate(Year = substr(Date, 7, 10))
+
+# Filter for SAC sites only
+IOS_data_SAC <- IOS_data %>%
+  filter(SAC > 0)
 
 ```
 
 
 #### 1.2 Explore the data and stats for text
 ```{r, results='hide'}
+# --- Summary Statistics & Dispersion Indices ---
 ## Richness
 mean(IOS_data$Richness)
 var(IOS_data$Richness)
@@ -170,21 +184,22 @@ var(IOS_data$Total_biomass_kg)
 sd(IOS_data$Total_biomass_kg)
 hist(IOS_data$Total_biomass_kg)
 
-## envo Pearsons and VIF tests
+# --- Pearson Correlation Matrix & Multicollinearity Checks (VIF) ---
+## Select numeric environmental variables (first pass)
 envo_variables_numeric <- IOS_data[,c('Depth','Temp','Remoteness','Exposure','Relief_score','Slope_mean','Rug_range')]
 envo_variables_numeric <-mutate_all(envo_variables_numeric, function(x)as.numeric(as.character(x)))
 
-#### Calculate Pearson correlation coefficient ####
-correlation_matrix <- cor(envo_variables_numeric)
-print(correlation_matrix)
+## Pearson correlation matrix
+correlation_matrix1 <- cor(envo_variables_numeric)
+print(correlation_matrix1)
 
 ## Setting up the model
-Richness_model <- glm(Richness ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
-MaxN_model <- glm(Total_MaxN ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
-Div_model <- glm(shannon_index ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
-Biomass_model <- glm(Total_biomass_kg ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+Richness_model <- lm(Richness ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+MaxN_model <- lm(Total_MaxN ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+Div_model <- lm(shannon_index ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
+Biomass_model <- lm(Total_biomass_kg ~ Relief_score+Depth+Temp+Rug_range+Remoteness+Exposure+Slope_mean, data = IOS_data)
 
-#### Calculating VIF ####
+### Calculating VIF 
 vif_Richness <- as.data.frame(vif(Richness_model))
 vif_Mean_MaxN <- as.data.frame(vif(MaxN_model))
 vif_Div <- as.data.frame(vif(Div_model))
@@ -197,57 +212,53 @@ vif_all <- vif_Richness %>%
   cbind(vif_Biomass_index)
 vif_all
 
-### rerun omitting mean slope and ruggedness
+# --- Rerun Analysis Omitting Correlated Predictors
 ## subset variables of interest for pearson
 envo_variables_numeric <- IOS_data[,c('Depth','Temp','Remoteness','Exposure','Relief_score')]
 envo_variables_numeric <-mutate_all(envo_variables_numeric, function(x)as.numeric(as.character(x)))
 
-#### Calculate Pearson correlation coefficient ####
-correlation_matrix <- cor(envo_variables_numeric)
-print(correlation_matrix)
+## Pearson correlation matrix
+correlation_matrix2 <- cor(envo_variables_numeric)
+print(correlation_matrix2)
 
 ## Setting up the model
-Richness_model <- lm(Richness ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
-MaxN_model <- lm(Total_MaxN ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
-Biomass_model <- lm(Total_biomass_kg ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
+Richness_model2 <- lm(Richness ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
+MaxN_model2 <- lm(Total_MaxN ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
+Biomass_model2 <- lm(Total_biomass_kg ~ Relief_score+Depth+Temp+Remoteness+Exposure, data = IOS_data)
 
-#### Calculating VIF ####
-vif_Richness <- as.data.frame(vif(Richness_model))
-vif_Mean_MaxN <- as.data.frame(vif(MaxN_model))
-vif_Biomass_index <- as.data.frame(vif(Biomass_model))
+## Calculating VIF 
+vif_Richness2 <- as.data.frame(vif(Richness_model2))
+vif_Mean_MaxN2 <- as.data.frame(vif(MaxN_model2))
+vif_Biomass_index2 <- as.data.frame(vif(Biomass_model2))
 
 ## merge together
-vif_all <- vif_Richness %>%
-  cbind(vif_Mean_MaxN) %>%
-  cbind(vif_Biomass_index)
-vif_all
+vif_all2 <- vif_Richness2 %>%
+  cbind(vif_Mean_MaxN2) %>%
+  cbind(vif_Biomass_index2)
+vif_all2
 
 ```
 
 #### 1.3 Proportion plots for Figure 2
 ```{r, warning=FALSE}
-## read in obs data with 0 values for non present sites
+# Read and Format Observation Data ---
+## Read wide-format observation data with zero values
 species <- read.csv('../Data/iNEXT_data_format2.csv')
-## convert wide to long
+
+## Convert from wide to long format
 long <- melt(setDT(species), id.vars = "ID", variable.name = "Species")
+colnames(long) <- c('GRTS_ID', 'Species', 'MaxN')
+long$GRTS_ID <- as.integer(gsub("IOS_", "", as.character(long$GRTS_ID)))
 
-## rename columns
-colnames(long) <- c('GRTS_ID','Species','MaxN')
-long$GRTS_ID <- gsub("IOS_","",as.character(long$GRTS_ID))
-long$GRTS_ID <- as.integer(long$GRTS_ID)
+## --- Species Summary Stats ---
 
-#species mean maxn
-maxN_mean <- long %>%
+species_maxn <- long %>%
   group_by(Species) %>%
-  summarise(Mean_MaxN = mean(MaxN))
-maxN_sd <- long %>%
-  group_by(Species) %>%
-  summarise(SD = sd(MaxN))
-maxN_sum <- long %>%
-  group_by(Species) %>%
-  summarise(Total_MaxN = sum(MaxN))
-species_maxn<-cbind(maxN_mean,maxN_sd,maxN_sum)
-species_maxn<-species_maxn[,c(1,2,4,6)]
+  summarise(Mean_MaxN = mean(MaxN, na.rm = TRUE),
+    SD = sd(MaxN, na.rm = TRUE),
+    Total_MaxN = sum(MaxN, na.rm = TRUE))
+
+# --- Load and Process Metadata 
 
 ## bind the families to species using merged Obs and meta data
 family_habs <- read.csv('../Data/IoS_BEN_metadata_obs.csv')

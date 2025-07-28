@@ -67,7 +67,7 @@ envo_variables <- read.csv('../Data/IoS_BEN_metadata.csv')
 # Calculate species richness per site
 deployment_richness <- reef_fish %>%
   group_by(GRTS_ID) %>%
-  summarise(Richness = n_distinct(Species))  # more accurate than length()
+  summarise(Richness = n_distinct(Species)) 
 
 # Calculate mean MaxN per site
 deployment_maxn <- reef_fish %>%
@@ -134,10 +134,6 @@ IOS_data <- left_join(mean_values5, envo_variables_short, by = "GRTS_ID")
 # Assign Year and Month
 IOS_data <- IOS_data %>%
   mutate(Year = substr(Date, 7, 10),Month = substr(Date, 4, 5))
-
-# Optional: also mutate `envo_variables_short` if needed elsewhere
-# envo_variables_short <- envo_variables_short %>%
-#   mutate(Year = substr(Date, 7, 10))
 
 # Filter for SAC sites only
 IOS_data_SAC <- IOS_data %>%
